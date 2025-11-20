@@ -16,32 +16,38 @@
  * You should have received a copy of the GNU General Public License
  * along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef FG_SCRIPT_GENERATOR_H
-#define FG_SCRIPT_GENERATOR_H
-
 #include <string>
+#include <clocale>
+
+#include "ScriptGenerator.hpp"
+
+using namespace fg;
 
 
-namespace fg {
-  class ScriptGenerator
-  {
-  public:
-    ScriptGenerator(double fps);
-
-    virtual ~ScriptGenerator() { };
-
-    double fps();
-    std::string fps_str();
-    virtual bool affects_audio() const = 0;
-    virtual void generate_ffmpeg_script(std::ostream& out) const = 0;
-    virtual int resulting_frames(int original_frames) const = 0;
-
-  protected:
-    double fps_;
-    std::string fps_str_;
-
-    std::string make_fps_str(double fps);
-  };
+ScriptGenerator::ScriptGenerator(double fps)
+  : fps_(fps)
+{
+  fps_str_ = make_fps_str(fps);
 }
 
-#endif // FG_SCRIPT_GENERATOR_H
+
+std::string ScriptGenerator::make_fps_str(double fps)
+{
+  char* original_locale = setlocale(LC_NUMERIC, nullptr);
+  setlocale(LC_NUMERIC, "C");
+  std::string result = std::to_string(fps);
+  setlocale(LC_NUMERIC, original_locale);
+  return result;
+}
+
+
+double ScriptGenerator::fps()
+{
+  return fps_;
+}
+
+
+std::string ScriptGenerator::fps_str()
+{
+  return fps_str_;
+}

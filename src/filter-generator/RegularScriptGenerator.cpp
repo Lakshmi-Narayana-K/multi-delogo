@@ -22,7 +22,6 @@
 #include <ostream>
 #include <algorithm>
 #include <numeric>
-#include <clocale>
 
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
@@ -37,24 +36,21 @@ using namespace fg;
 RegularScriptGenerator::RegularScriptGenerator(const FilterList& filter_list,
                                                int frame_width, int frame_height, double fps,
                                                maybe_int scale_width, maybe_int scale_height)
-  : filter_list_(filter_list)
+  : ScriptGenerator(fps)
+  , filter_list_(filter_list)
   , frame_width_(frame_width)
   , frame_height_(frame_height)
   , scale_width_(scale_width)
   , scale_height_(scale_height)
   , first_filter_(true)
 {
-  fps_ = make_fps_str(fps);
+  by_fps_ = make_by_fps_str();
 }
 
 
-std::string RegularScriptGenerator::make_fps_str(double fps)
+std::string RegularScriptGenerator::make_by_fps_str()
 {
-  char* original_locale = setlocale(LC_NUMERIC, nullptr);
-  setlocale(LC_NUMERIC, "C");
-  std::string result = "/" + std::to_string(fps);
-  setlocale(LC_NUMERIC, original_locale);
-  return result;
+  return "/" + fps_str();
 }
 
 
@@ -204,12 +200,12 @@ std::string RegularScriptGenerator::get_audio_expression(int start_frame, maybe_
 {
   if (next_start_frame) {
     return "between(t,"
-      + std::to_string(start_frame) + fps_
-      + ',' + std::to_string(*next_start_frame - 1) + fps_
+      + std::to_string(start_frame) + by_fps_
+      + ',' + std::to_string(*next_start_frame - 1) + by_fps_
       + ")";
   } else {
     return "gte(t,"
-      + std::to_string(start_frame) + fps_
+      + std::to_string(start_frame) + by_fps_
       + ")";
   }
 }

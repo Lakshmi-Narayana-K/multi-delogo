@@ -31,6 +31,7 @@ libfilter_generator_a_SOURCES = IOUtils.cpp \
                                 Filters.cpp \
                                 FilterFactory.cpp \
                                 FilterList.cpp \
+				ScriptGenerator.cpp \
                                 RegularScriptGenerator.cpp \
                                 FuzzyScriptGenerator.cpp \
                                 FilterData.cpp

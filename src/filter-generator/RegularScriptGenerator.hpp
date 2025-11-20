@@ -53,14 +53,14 @@ namespace fg {
     const FilterList& filter_list_;
     int frame_width_;
     int frame_height_;
-    std::string fps_;
+    std::string by_fps_;
     maybe_int scale_width_;
     maybe_int scale_height_;
     mutable int first_filter_;
 
     mutable std::vector<std::pair<int, maybe_int>> cuts_;
 
-    std::string make_fps_str(double fps);
+    std::string make_by_fps_str();
 
     void generate_ffmpeg_script_standard_filters(std::ostream& out) const;
     void generate_ffmpeg_script_cuts(std::ostream& out) const;
