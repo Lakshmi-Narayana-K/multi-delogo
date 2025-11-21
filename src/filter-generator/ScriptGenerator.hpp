@@ -32,7 +32,6 @@ namespace fg {
 
     double fps();
     std::string fps_str();
-    virtual bool affects_audio() const = 0;
     virtual void generate_ffmpeg_script(std::ostream& out) const = 0;
     virtual int resulting_frames(int original_frames) const = 0;
 

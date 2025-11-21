@@ -45,13 +45,6 @@ BOOST_AUTO_TEST_CASE(test_name)
 }
 
 
-BOOST_AUTO_TEST_CASE(null_filter_does_not_affect_audio)
-{
-  fg::NullFilter filter;
-  BOOST_TEST(!filter.affects_audio());
-}
-
-
 BOOST_AUTO_TEST_CASE(test_save_str)
 {
   fg::NullFilter filter;
@@ -80,7 +73,7 @@ BOOST_AUTO_TEST_CASE(test_ffmpeg_str)
 {
   fg::NullFilter filter;
 
-  std::string ffmpeg(filter.ffmpeg_str("<BETWEEN>", 640, 480));
+  std::string ffmpeg(filter.ffmpeg_str(640, 480));
 
   BOOST_CHECK_EQUAL(ffmpeg, "");
 }

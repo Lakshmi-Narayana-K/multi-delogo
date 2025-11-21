@@ -45,7 +45,6 @@ namespace fg {
                                                           int frame_width, int frame_height, double fps,
                                                           maybe_int scale_width, maybe_int scale_height);
 
-    bool affects_audio() const override;
     void generate_ffmpeg_script(std::ostream& out) const override;
     int resulting_frames(int original_frames) const override;
 
@@ -53,29 +52,20 @@ namespace fg {
     const FilterList& filter_list_;
     int frame_width_;
     int frame_height_;
-    std::string by_fps_;
     maybe_int scale_width_;
     maybe_int scale_height_;
-    mutable int first_filter_;
 
+    mutable int first_filter_;
     mutable std::vector<std::pair<int, maybe_int>> cuts_;
 
-    std::string make_by_fps_str();
-
-    void generate_ffmpeg_script_standard_filters(std::ostream& out) const;
-    void generate_ffmpeg_script_cuts(std::ostream& out) const;
-    void generate_ffmpeg_script_scale(std::ostream& out) const;
-    void generate_ffmpeg_script_audio(std::ostream& out) const;
-    std::string separator() const;
-
-    void process_standard_filter(filter_ptr filter,
-                                 int start_frame, maybe_int next_start_frame,
-                                 std::ostream& out) const;
-    void process_cut_filter(int start_frame, maybe_int next_start_frame) const;
-
-    virtual std::string get_enable_expression(int start_frame, maybe_int next_start_frame) const;
-    std::string get_frame_expression(int start_frame, maybe_int next_start_frame) const;
-    std::string get_audio_expression(int start_frame, maybe_int next_start_frame) const;
+    int generate_filter_segments(std::ostream& out) const;
+    void generate_segment(std::ostream& out, int segment, filter_ptr filter,
+                          int start_frame, maybe_int next_start_frame) const;
+    bool first_filter_does_not_start_at_first_frame(int start_frame) const;
+    void copy_first_segment_unchanged(std::ostream& out, int next_start) const;
+    std::string generate_trim(int start_frame, maybe_int next_start_frame) const;
+    std::string generate_atrim(int start_frame, maybe_int next_start_frame) const;
+    void generate_final_concat(std::ostream& out, int n_segments) const;
   };
 }
 

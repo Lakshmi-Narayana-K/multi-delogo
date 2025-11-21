@@ -183,14 +183,9 @@ std::vector<std::string> FFmpegExecutor::get_audio_opts()
 {
   std::vector<std::string> audio_opts;
 
-  if (generator_->affects_audio()) {
-    audio_opts.push_back("-map"); audio_opts.push_back("[out_a]");
-    audio_opts.push_back("-c:a"); audio_opts.push_back("aac");
-    audio_opts.push_back("-b:a"); audio_opts.push_back("192k");
-  } else {
-    audio_opts.push_back("-map"); audio_opts.push_back("0:a?");
-    audio_opts.push_back("-c:a"); audio_opts.push_back("copy");
-  }
+  audio_opts.push_back("-map"); audio_opts.push_back("[out_a]");
+  audio_opts.push_back("-c:a"); audio_opts.push_back("aac");
+  audio_opts.push_back("-b:a"); audio_opts.push_back("192k");
 
   return audio_opts;
 }

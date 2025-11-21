@@ -20,6 +20,8 @@
 #include <string>
 #include <utility>
 #include <ostream>
+#include <sstream>
+#include <iomanip>
 #include <algorithm>
 #include <numeric>
 
@@ -28,6 +30,7 @@
 
 #include "RegularScriptGenerator.hpp"
 #include "Filters.hpp"
+#include "FilterFactory.hpp"
 #include "FilterList.hpp"
 
 using namespace fg;
@@ -44,27 +47,12 @@ RegularScriptGenerator::RegularScriptGenerator(const FilterList& filter_list,
   , scale_height_(scale_height)
   , first_filter_(true)
 {
-  by_fps_ = make_by_fps_str();
 }
-
-
-std::string RegularScriptGenerator::make_by_fps_str()
-{
-  return "/" + fps_str();
-}
-
 
 
 std::shared_ptr<RegularScriptGenerator> RegularScriptGenerator::create(const FilterList& filter_list, int frame_width, int frame_height, double fps, maybe_int scale_width, maybe_int scale_height)
 {
   return std::shared_ptr<RegularScriptGenerator>(new RegularScriptGenerator(filter_list, frame_width, frame_height, fps, scale_width, scale_height));
-}
-
-
-bool RegularScriptGenerator::affects_audio() const
-{
-  return std::any_of(filter_list_.begin(), filter_list_.end(),
-                     [](auto& f) { return f.second->affects_audio(); });
 }
 
 
@@ -74,140 +62,108 @@ void RegularScriptGenerator::generate_ffmpeg_script(std::ostream& out) const
     return;
   }
 
-  out << "[0:v]\n";
-  generate_ffmpeg_script_standard_filters(out);
-  generate_ffmpeg_script_cuts(out);
-  generate_ffmpeg_script_scale(out);
-  out << "\n[out_v]";
-  generate_ffmpeg_script_audio(out);
+  int n_segments = generate_filter_segments(out);
+  generate_final_concat(out, n_segments);
 }
 
 
-void RegularScriptGenerator::generate_ffmpeg_script_standard_filters(std::ostream& out) const
+int RegularScriptGenerator::generate_filter_segments(std::ostream& out) const
 {
+  int segment = 0;
   FilterList::const_iterator i = filter_list_.begin();
-
   while (i != filter_list_.end()) {
     auto& current = *i++;
-
     filter_ptr filter = current.second;
 
-    int start = current.first - 1;
-    maybe_int next_start;
+    int start_frame = current.first - 1;
+    maybe_int next_start_frame;
     if (i != filter_list_.end()) {
       auto& next = *i;
-      next_start = boost::make_optional(next.first - 1);
+      next_start_frame = boost::make_optional(next.first - 1);
     }
 
-    if (filter->type() == fg::FilterType::CUT) {
-      process_cut_filter(start, next_start);
-    } else {
-      process_standard_filter(filter, start, next_start, out);
+    if (first_filter_does_not_start_at_first_frame(start_frame)) {
+      copy_first_segment_unchanged(out, start_frame);
+      segment++;
     }
-  }
-}
-
-
-void RegularScriptGenerator::process_standard_filter(filter_ptr filter,
-                                                     int start_frame, maybe_int next_start_frame,
-                                                     std::ostream& out) const
-{
-  std::string frame_expr = get_enable_expression(start_frame, next_start_frame);
-  std::string ffmpeg_str = filter->ffmpeg_str(frame_expr, frame_width_, frame_height_);
-  if (ffmpeg_str != "") {
-    out << separator() << ffmpeg_str;
-  }
-}
-
-
-void RegularScriptGenerator::process_cut_filter(int start_frame, maybe_int next_start_frame) const
-{
-  cuts_.push_back(std::make_pair(start_frame, next_start_frame));
-}
-
-
-void RegularScriptGenerator::generate_ffmpeg_script_cuts(std::ostream& out) const
-{
-  if (cuts_.empty()) {
-    return;
-  }
-
-  std::vector<std::string> positions;
-  positions.resize(cuts_.size());
-  std::transform(cuts_.begin(), cuts_.end(), positions.begin(),
-                 [this](auto& i) { return get_frame_expression(i.first, i.second); });
-
-  std::string expressions(boost::algorithm::join(positions, "+"));
-  out << separator() << "select='not(" << expressions << ")',setpts=N/FRAME_RATE/TB";
-}
-
-
-void RegularScriptGenerator::generate_ffmpeg_script_scale(std::ostream& out) const
-{
-  if (!scale_width_) {
-    return;
-  }
-
-  out << separator() << "scale=" << *scale_width_ << ":" << *scale_height_;
-}
-
-
-void RegularScriptGenerator::generate_ffmpeg_script_audio(std::ostream& out) const
-{
-  if (cuts_.empty()) {
-    return;
-  }
-
-  std::vector<std::string> positions;
-  positions.resize(cuts_.size());
-  std::transform(cuts_.begin(), cuts_.end(), positions.begin(),
-                 [this](auto& i) { return get_audio_expression(i.first, i.second); });
-
-  std::string expressions(boost::algorithm::join(positions, "+"));
-  out << ";\n[0:a]aselect='not(" << expressions << ")',asetpts=N/SR/TB[out_a]";
-}
-
-
-std::string RegularScriptGenerator::separator() const
-{
-  if (first_filter_) {
     first_filter_ = false;
-    return "";
-  } else {
-    return ",\n";
+
+    if (filter->type() == FilterType::CUT) {
+      cuts_.push_back(std::make_pair(start_frame, next_start_frame));
+      continue;
+    }
+
+    generate_segment(out, segment, filter, start_frame, next_start_frame);
+
+    ++segment;
   }
+
+  return segment;
 }
 
 
-std::string RegularScriptGenerator::get_enable_expression(int start_frame, maybe_int next_start_frame) const
+bool RegularScriptGenerator::first_filter_does_not_start_at_first_frame(int start_frame) const
 {
-  return "enable='" + get_frame_expression(start_frame, next_start_frame) + "'";
+  return first_filter_ && start_frame != 0;
 }
 
 
-std::string RegularScriptGenerator::get_frame_expression(int start_frame, maybe_int next_start_frame) const
+void RegularScriptGenerator::copy_first_segment_unchanged(std::ostream& out, int next_start) const
+{
+  generate_segment(out, 0, FilterFactory::create(FilterType::NO_OP), 0, next_start);
+}
+
+
+void RegularScriptGenerator::generate_segment(std::ostream& out, int segment, filter_ptr filter,
+                                              int start_frame, maybe_int next_start_frame) const
+{
+  std::string ffmpeg_str = filter->ffmpeg_str(frame_width_, frame_height_);
+  out << "[0:v]" << generate_trim(start_frame, next_start_frame) << ",setpts=PTS-STARTPTS";
+  if (ffmpeg_str != "") {
+    out << "," << ffmpeg_str;
+  }
+  if (scale_width_) {
+    out << ",scale=" << *scale_width_ << ":" << *scale_height_;
+  }
+  out << "[vs" << segment << "];\n";
+
+  out << "[0:a]" << generate_atrim(start_frame, next_start_frame)
+      << ",asetpts=PTS-STARTPTS" << "[as" << segment << "];\n";
+}
+
+
+std::string RegularScriptGenerator::generate_trim(int start_frame, maybe_int next_start_frame) const
 {
   if (next_start_frame) {
-    return "between(n," + std::to_string(start_frame)
-      + ',' + std::to_string(*next_start_frame - 1) + ")";
+    return "trim=start_frame=" + std::to_string(start_frame)
+      + ":end_frame=" + std::to_string(*next_start_frame);
   } else {
-    return "gte(n," + std::to_string(start_frame) + ")";
+    return "trim=start_frame=" + std::to_string(start_frame);
   }
 }
 
 
-std::string RegularScriptGenerator::get_audio_expression(int start_frame, maybe_int next_start_frame) const
+std::string RegularScriptGenerator::generate_atrim(int start_frame, maybe_int next_start_frame) const
 {
+  std::stringstream out;
+  out << std::fixed << std::setprecision(3);
+  double start_time = start_frame/fps_;
   if (next_start_frame) {
-    return "between(t,"
-      + std::to_string(start_frame) + by_fps_
-      + ',' + std::to_string(*next_start_frame - 1) + by_fps_
-      + ")";
+    double end_time = *next_start_frame/fps_;
+    out << "atrim=start=" << start_time << ":end=" << end_time;
   } else {
-    return "gte(t,"
-      + std::to_string(start_frame) + by_fps_
-      + ")";
+    out << "atrim=start=" << start_time;
   }
+  return out.str();
+}
+
+
+void RegularScriptGenerator::generate_final_concat(std::ostream& out, int n_segments) const
+{
+  for (int i = 0; i < n_segments; ++i) {
+    out << "[vs" << i << "][as" << i << "]";
+  }
+  out << "concat=n=" << n_segments << ":v=1:a=1[out_v][out_a]";
 }
 
 

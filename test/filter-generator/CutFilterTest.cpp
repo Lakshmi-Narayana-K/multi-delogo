@@ -45,13 +45,6 @@ BOOST_AUTO_TEST_CASE(test_name)
 }
 
 
-BOOST_AUTO_TEST_CASE(cut_filter_affects_audio)
-{
-  fg::CutFilter filter;
-  BOOST_TEST(filter.affects_audio());
-}
-
-
 BOOST_AUTO_TEST_CASE(test_save_str)
 {
   fg::CutFilter filter;
@@ -80,7 +73,7 @@ BOOST_AUTO_TEST_CASE(test_ffmpeg_str)
 {
   fg::CutFilter filter;
 
-  std::string ffmpeg(filter.ffmpeg_str("<BETWEEN>", 1920, 1080));
+  std::string ffmpeg(filter.ffmpeg_str(1920, 1080));
 
   BOOST_CHECK_EQUAL(ffmpeg, "");
 }

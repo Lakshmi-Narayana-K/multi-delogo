@@ -37,13 +37,6 @@ BOOST_AUTO_TEST_CASE(test_name)
 }
 
 
-BOOST_AUTO_TEST_CASE(drawbox_filter_does_not_affect_audio)
-{
-  fg::DrawboxFilter filter(9, 8, 7, 6);
-  BOOST_TEST(!filter.affects_audio());
-}
-
-
 BOOST_AUTO_TEST_CASE(test_construction)
 {
   fg::DrawboxFilter filter(1, 2, 3, 4);
@@ -103,7 +96,7 @@ BOOST_AUTO_TEST_CASE(test_ffmpeg_str)
 {
   fg::DrawboxFilter filter(50, 60, 150, 30);
 
-  std::string ffmpeg(filter.ffmpeg_str("<BETWEEN>", 1920, 1080));
+  std::string ffmpeg(filter.ffmpeg_str(1920, 1080));
 
-  BOOST_CHECK_EQUAL(ffmpeg, "drawbox=<BETWEEN>:x=50:y=60:w=150:h=30:c=black:t=fill");
+  BOOST_CHECK_EQUAL(ffmpeg, "drawbox=x=50:y=60:w=150:h=30:c=black:t=fill");
 }
