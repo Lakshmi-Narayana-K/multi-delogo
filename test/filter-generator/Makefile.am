@@ -26,7 +26,6 @@ check_PROGRAMS = IOUtilsTest \
                  FilterFactoryTest \
                  FilterListTest \
                  RegularScriptGeneratorTest \
-                 FuzzyScriptGeneratorTest \
                  FilterDataTest
 
 TESTS = $(check_PROGRAMS)

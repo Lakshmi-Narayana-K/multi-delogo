@@ -38,13 +38,6 @@ along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
     <property name="step-increment">1</property>
     <property name="page-increment">10</property>
   </object>
-  <object class="GtkAdjustment" id="adj_txt_fuzzyness">
-    <property name="lower">0.10</property>
-    <property name="upper">10</property>
-    <property name="value">2</property>
-    <property name="step-increment">0.10</property>
-    <property name="page-increment">0.10</property>
-  </object>
   <object class="GtkAdjustment" id="adj_txt_quality">
     <property name="upper">51</property>
     <property name="step-increment">1</property>
@@ -256,66 +249,6 @@ along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
           </packing>
         </child>
         <child>
-          <object class="GtkBox" id="box_fuzzy">
-            <property name="visible">True</property>
-            <property name="can-focus">False</property>
-            <property name="valign">center</property>
-            <property name="spacing">4</property>
-            <child>
-              <object class="GtkCheckButton" id="chk_fuzzy">
-                <property name="label" translatable="yes">_Randomnly increase filter times</property>
-                <property name="visible">True</property>
-                <property name="can-focus">True</property>
-                <property name="receives-default">False</property>
-                <property name="tooltip-text" translatable="yes">If set, each filter's duration will be randomly increated, so that two or more filters can be active at the same time.</property>
-                <property name="use-underline">True</property>
-                <property name="draw-indicator">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="lbl_fuzzy_factor">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="margin-start">16</property>
-                <property name="label" translatable="yes">_Factor:</property>
-                <property name="use-underline">True</property>
-                <property name="mnemonic-widget">txt_fuzzyness</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSpinButton" id="txt_fuzzyness">
-                <property name="visible">True</property>
-                <property name="sensitive">False</property>
-                <property name="can-focus">True</property>
-                <property name="tooltip-text" translatable="yes">Controls how much each filter's time is increased. If set to 2, then on average filters will last twice their original duration.</property>
-                <property name="adjustment">adj_txt_fuzzyness</property>
-                <property name="digits">1</property>
-                <property name="value">2</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">2</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">True</property>
-            <property name="fill">True</property>
-            <property name="position">3</property>
-          </packing>
-        </child>
-        <child>
           <object class="GtkBox" id="box_scale">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
@@ -380,7 +313,7 @@ along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
           <packing>
             <property name="expand">False</property>
             <property name="fill">True</property>
-            <property name="position">4</property>
+            <property name="position">3</property>
           </packing>
         </child>
         <child>
@@ -438,7 +371,7 @@ along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
           <packing>
             <property name="expand">True</property>
             <property name="fill">True</property>
-            <property name="position">5</property>
+            <property name="position">4</property>
           </packing>
         </child>
         <child>
@@ -491,7 +424,7 @@ along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
           <packing>
             <property name="expand">True</property>
             <property name="fill">True</property>
-            <property name="position">6</property>
+            <property name="position">5</property>
           </packing>
         </child>
       </object>

@@ -6,6 +6,8 @@
 
 * It is now possible to scale the encoded video.
 
+* Removed "Randomly increase filter times" feature.
+
 
 ## 2.4.0
 

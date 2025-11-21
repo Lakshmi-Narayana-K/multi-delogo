@@ -60,9 +60,6 @@ namespace mdl {
     Gtk::SpinButton* txt_quality_;
     Gtk::ComboBoxText* cmb_preset_;
 
-    Gtk::CheckButton* chk_fuzzy_;
-    Gtk::SpinButton* txt_fuzzyness_;
-
     Gtk::CheckButton* chk_scale_;
     Gtk::SpinButton* txt_scale_width_;
     Gtk::SpinButton* txt_scale_height_;
@@ -80,7 +77,6 @@ namespace mdl {
 
     void on_select_file();
     void on_codec(FFmpegExecutor::Codec codec);
-    void on_fuzzy_toggled();
     void on_scale_toggled();
 
     void on_encode();

@@ -22,7 +22,6 @@ noinst_HEADERS = Exceptions.hpp \
                  FilterList.hpp \
                  ScriptGenerator.hpp \
                  RegularScriptGenerator.hpp \
-                 FuzzyScriptGenerator.hpp \
                  FilterData.hpp
 
 noinst_LIBRARIES = libfilter-generator.a
@@ -33,5 +32,4 @@ libfilter_generator_a_SOURCES = IOUtils.cpp \
                                 FilterList.cpp \
 				ScriptGenerator.cpp \
                                 RegularScriptGenerator.cpp \
-                                FuzzyScriptGenerator.cpp \
                                 FilterData.cpp
