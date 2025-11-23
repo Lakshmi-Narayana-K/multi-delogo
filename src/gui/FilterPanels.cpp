@@ -99,18 +99,6 @@ void FilterPanelNoParameters::set_parameters(const Parameters& parameters)
 }
 
 
-bool FilterPanelNoParameters::is_changed() const
-{
-  return false;
-}
-
-
-void FilterPanelNoParameters::set_changed(bool changed)
-{
-  // nothing to do
-}
-
-
 FilterPanelNull::FilterPanelNull(int start_frame, int max_frame)
   : FilterPanelNoParameters(start_frame, max_frame)
 {
@@ -176,7 +164,6 @@ FilterPanelRectangular::FilterPanelRectangular(int start_frame, int max_frame,
                                                int x, int y, int width, int height,
                                                int frame_width, int frame_height)
   : FilterPanel(start_frame, max_frame)
-  , is_changed_(false)
 {
   txt_x_.configure(create_adjustment(x, frame_width - 1), 10, 0);
   txt_y_.configure(create_adjustment(y, frame_height - 1), 10, 0);
@@ -236,21 +223,8 @@ void FilterPanelRectangular::set_parameters(const Parameters& parameters)
 }
 
 
-bool FilterPanelRectangular::is_changed() const
-{
-  return is_changed_;
-}
-
-
-void FilterPanelRectangular::set_changed(bool changed)
-{
-  is_changed_ = changed;
-}
-
-
 void FilterPanelRectangular::on_coordinate_change()
 {
-  is_changed_ = true;
   signal_parameters_changed_.emit(get_parameters());
 }
 

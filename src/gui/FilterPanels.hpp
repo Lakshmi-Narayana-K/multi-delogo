@@ -39,8 +39,6 @@ namespace mdl {
   public:
     Parameters get_parameters() const override;
     void set_parameters(const Parameters& parameters) override;
-    bool is_changed() const override;
-    void set_changed(bool changed) override;
   };
 
 
@@ -87,16 +85,12 @@ namespace mdl {
   public:
     Parameters get_parameters() const override;
     void set_parameters(const Parameters& parameters) override;
-    bool is_changed() const override;
-    void set_changed(bool changed) override;
 
   protected:
     Gtk::SpinButton txt_x_;
     Gtk::SpinButton txt_y_;
     Gtk::SpinButton txt_width_;
     Gtk::SpinButton txt_height_;
-
-    bool is_changed_;
 
   private:
     Glib::RefPtr<Gtk::Adjustment> create_adjustment(int start_value, int max);

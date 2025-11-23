@@ -403,7 +403,6 @@ void Coordinator::remove_filter(int start_frame)
 void Coordinator::insert_filter(int start_frame, fg::filter_ptr filter)
 {
   filter_model_->insert(start_frame, filter);
-  current_filter_panel_->set_changed(false);
   frame_navigator_->change_displayed_frame(start_frame);
 }
 

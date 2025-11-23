@@ -46,8 +46,6 @@ namespace mdl {
     virtual void set_start_frame(int start_frame);
     virtual Parameters get_parameters() const = 0;
     virtual void set_parameters(const Parameters& parameters) = 0;
-    virtual bool is_changed() const = 0;
-    virtual void set_changed(bool changed) = 0;
 
     typedef sigc::signal<void, int> type_signal_start_frame_changed;
     virtual type_signal_start_frame_changed signal_start_frame_changed();
