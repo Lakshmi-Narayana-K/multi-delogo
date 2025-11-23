@@ -216,9 +216,10 @@ void Coordinator::change_displayed_filter(const FilterListModel::iterator& iter)
 
   update_displayed_panel(filter->type(), panel_factory_.create(start_frame, filter));
 
-  auto rect = current_filter_panel_->get_rectangle();
-  if (rect) {
-    frame_view_->show_rectangle(*rect);
+  auto parameters = current_filter_panel_->get_parameters();
+  if (boost::variant2::holds_alternative<Rectangle>(parameters)) {
+    auto rect = boost::variant2::get<Rectangle>(parameters);
+    frame_view_->show_rectangle(rect);
     if (scroll_filter_) {
       frame_view_->scroll_to_current_rectangle();
     }
@@ -236,8 +237,8 @@ void Coordinator::update_displayed_panel(fg::FilterType type, FilterPanel* panel
   filter_list_->set_filter(type, current_filter_panel_);
   on_filter_type_changed_.block(false);
 
-  on_panel_rectangle_changed_ = current_filter_panel_->signal_rectangle_changed().connect(
-    sigc::mem_fun(*this, &Coordinator::on_panel_rectangle_changed));
+  on_panel_parameters_changed_ = current_filter_panel_->signal_parameters_changed().connect(
+    sigc::mem_fun(*this, &Coordinator::on_panel_parameters_changed));
   on_start_frame_changed_ = current_filter_panel_->signal_start_frame_changed().connect(
     sigc::mem_fun(*this, &Coordinator::on_start_frame_changed));
 }
@@ -273,19 +274,22 @@ void Coordinator::on_frame_rectangle_changed(Rectangle rect)
     create_new_filter_panel();
   }
 
-  on_panel_rectangle_changed_.block();
-  current_filter_panel_->set_rectangle(rect);
-  on_panel_rectangle_changed_.block(false);
+  on_panel_parameters_changed_.block();
+  current_filter_panel_->set_parameters(FilterPanel::Parameters(rect));
+  on_panel_parameters_changed_.block(false);
 
   update_filter_for_current_frame();
 }
 
 
-void Coordinator::on_panel_rectangle_changed(Rectangle rect)
+void Coordinator::on_panel_parameters_changed(FilterPanel::Parameters parameters)
 {
-  on_frame_rectangle_changed_.block();
-  frame_view_->show_rectangle(rect);
-  on_frame_rectangle_changed_.block(false);
+  if (boost::variant2::holds_alternative<Rectangle>(parameters)) {
+    auto rect = boost::variant2::get<Rectangle>(parameters);
+    on_frame_rectangle_changed_.block();
+    frame_view_->show_rectangle(rect);
+    on_frame_rectangle_changed_.block(false);
+  }
 
   update_filter_for_current_frame();
 }

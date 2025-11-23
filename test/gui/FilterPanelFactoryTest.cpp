@@ -87,13 +87,13 @@ BOOST_AUTO_TEST_CASE(filter_panel_null_should_return_a_null_filter)
 }
 
 
-BOOST_AUTO_TEST_CASE(filter_panel_null_should_return_no_rectangle)
+BOOST_AUTO_TEST_CASE(filter_panel_null_should_return_no_parameters)
 {
   fg::filter_ptr filter(new fg::NullFilter);
   FilterPanel* panel = factory.create(1, filter);
 
-  auto rect = panel->get_rectangle();
-  BOOST_CHECK(!rect);
+  auto parms = panel->get_parameters();
+  BOOST_CHECK(boost::variant2::holds_alternative<FilterPanel::NoParameters>(parms));
 }
 
 
@@ -137,12 +137,13 @@ BOOST_AUTO_TEST_CASE(filter_panel_delogo_should_return_a_rectangle)
   fg::filter_ptr filter(new fg::DelogoFilter(15, 20, 80, 40));
   FilterPanel* panel = factory.create(1, filter);
 
-  auto rect = panel->get_rectangle();
-  BOOST_REQUIRE(rect);
-  BOOST_CHECK_EQUAL(rect->x, 15);
-  BOOST_CHECK_EQUAL(rect->y, 20);
-  BOOST_CHECK_EQUAL(rect->width, 80);
-  BOOST_CHECK_EQUAL(rect->height, 40);
+  auto parms = panel->get_parameters();
+  BOOST_REQUIRE(boost::variant2::holds_alternative<Rectangle>(parms));
+  auto rect = boost::variant2::get<Rectangle>(parms);
+  BOOST_CHECK_EQUAL(rect.x, 15);
+  BOOST_CHECK_EQUAL(rect.y, 20);
+  BOOST_CHECK_EQUAL(rect.width, 80);
+  BOOST_CHECK_EQUAL(rect.height, 40);
 }
 
 
@@ -186,12 +187,13 @@ BOOST_AUTO_TEST_CASE(filter_panel_drawbox_should_return_a_rectangle)
   fg::filter_ptr filter(new fg::DrawboxFilter(0, 500, 100, 30));
   FilterPanel* panel = factory.create(1, filter);
 
-  auto rect = panel->get_rectangle();
-  BOOST_REQUIRE(rect);
-  BOOST_CHECK_EQUAL(rect->x, 0);
-  BOOST_CHECK_EQUAL(rect->y, 500);
-  BOOST_CHECK_EQUAL(rect->width, 100);
-  BOOST_CHECK_EQUAL(rect->height, 30);
+  auto parms = panel->get_parameters();
+  BOOST_REQUIRE(boost::variant2::holds_alternative<Rectangle>(parms));
+  auto rect = boost::variant2::get<Rectangle>(parms);
+  BOOST_CHECK_EQUAL(rect.x, 0);
+  BOOST_CHECK_EQUAL(rect.y, 500);
+  BOOST_CHECK_EQUAL(rect.width, 100);
+  BOOST_CHECK_EQUAL(rect.height, 30);
 }
 
 
@@ -224,13 +226,13 @@ BOOST_AUTO_TEST_CASE(filter_panel_cut_should_return_a_cut_filter)
 }
 
 
-BOOST_AUTO_TEST_CASE(filter_panel_cut_should_return_no_rectangle)
+BOOST_AUTO_TEST_CASE(filter_panel_cut_should_return_no_parameters)
 {
   fg::filter_ptr filter(new fg::CutFilter());
   FilterPanel* panel = factory.create(1, filter);
 
-  auto rect = panel->get_rectangle();
-  BOOST_CHECK(!rect);
+  auto parms = panel->get_parameters();
+  BOOST_CHECK(boost::variant2::holds_alternative<FilterPanel::NoParameters>(parms));
 }
 
 
@@ -263,13 +265,13 @@ BOOST_AUTO_TEST_CASE(filter_panel_review_should_return_a_review_filter)
 }
 
 
-BOOST_AUTO_TEST_CASE(filter_panel_review_should_return_no_rectangle)
+BOOST_AUTO_TEST_CASE(filter_panel_review_should_return_no_parameters)
 {
   fg::filter_ptr filter(new fg::ReviewFilter());
   FilterPanel* panel = factory.create(1, filter);
 
-  auto rect = panel->get_rectangle();
-  BOOST_CHECK(!rect);
+  auto parms = panel->get_parameters();
+  BOOST_CHECK(boost::variant2::holds_alternative<FilterPanel::NoParameters>(parms));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

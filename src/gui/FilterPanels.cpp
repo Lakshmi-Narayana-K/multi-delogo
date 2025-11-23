@@ -69,9 +69,9 @@ FilterPanel::type_signal_start_frame_changed FilterPanel::signal_start_frame_cha
 }
 
 
-FilterPanel::type_signal_rectangle_changed FilterPanel::signal_rectangle_changed()
+FilterPanel::type_signal_parameters_changed FilterPanel::signal_parameters_changed()
 {
-  return signal_rectangle_changed_;
+  return signal_parameters_changed_;
 }
 
 
@@ -87,13 +87,13 @@ FilterPanelNoParameters::FilterPanelNoParameters(int start_frame, int max_frame)
 }
 
 
-FilterPanelNoParameters::MaybeRectangle FilterPanelNoParameters::get_rectangle() const
+FilterPanel::Parameters FilterPanelNoParameters::get_parameters() const
 {
-  return boost::none;
+  return FilterPanel::Parameters(FilterPanel::NoParameters());
 }
 
 
-void FilterPanelNoParameters::set_rectangle(const Rectangle& rect)
+void FilterPanelNoParameters::set_parameters(const Parameters& parameters)
 {
   // nothing to do
 }
@@ -216,18 +216,19 @@ void FilterPanelRectangular::add_widget(Gtk::Widget& widget,
 }
 
 
-FilterPanelRectangular::MaybeRectangle FilterPanelRectangular::get_rectangle() const
+FilterPanel::Parameters FilterPanelRectangular::get_parameters() const
 {
   Rectangle rect = {.x = txt_x_.get_value(),
                     .y = txt_y_.get_value(),
                     .width = txt_width_.get_value(),
                     .height = txt_height_.get_value()};
-  return boost::make_optional(rect);
+  return FilterPanel::Parameters(rect);
 }
 
 
-void FilterPanelRectangular::set_rectangle(const Rectangle& rect)
+void FilterPanelRectangular::set_parameters(const Parameters& parameters)
 {
+  Rectangle rect = boost::variant2::get<Rectangle>(parameters);
   txt_x_.set_value(rect.x);
   txt_y_.set_value(rect.y);
   txt_width_.set_value(rect.width);
@@ -250,7 +251,7 @@ void FilterPanelRectangular::set_changed(bool changed)
 void FilterPanelRectangular::on_coordinate_change()
 {
   is_changed_ = true;
-  signal_rectangle_changed_.emit(*get_rectangle());
+  signal_parameters_changed_.emit(get_parameters());
 }
 
 

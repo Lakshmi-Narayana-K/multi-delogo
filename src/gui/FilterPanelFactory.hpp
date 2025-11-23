@@ -22,6 +22,7 @@
 #include <gtkmm.h>
 
 #include <boost/optional.hpp>
+#include <boost/variant2.hpp>
 
 #include "filter-generator/Filters.hpp"
 
@@ -37,28 +38,29 @@ namespace mdl {
   public:
     virtual ~FilterPanel();
 
-    typedef boost::optional<Rectangle> MaybeRectangle;
+    typedef boost::variant2::monostate NoParameters;
+    typedef boost::variant2::variant<NoParameters, Rectangle> Parameters;
 
     virtual bool creates_filter() const;
     virtual fg::filter_ptr get_filter() const = 0;
     virtual void set_start_frame(int start_frame);
-    virtual MaybeRectangle get_rectangle() const = 0;
-    virtual void set_rectangle(const Rectangle& rect) = 0;
+    virtual Parameters get_parameters() const = 0;
+    virtual void set_parameters(const Parameters& parameters) = 0;
     virtual bool is_changed() const = 0;
     virtual void set_changed(bool changed) = 0;
 
     typedef sigc::signal<void, int> type_signal_start_frame_changed;
     virtual type_signal_start_frame_changed signal_start_frame_changed();
 
-    typedef sigc::signal<void, Rectangle> type_signal_rectangle_changed;
-    virtual type_signal_rectangle_changed signal_rectangle_changed();
+    typedef sigc::signal<void, Parameters> type_signal_parameters_changed;
+    virtual type_signal_parameters_changed signal_parameters_changed();
 
   protected:
     Gtk::Label lbl_start_frame_;
     Gtk::SpinButton txt_start_frame_;
 
     type_signal_start_frame_changed signal_start_frame_changed_;
-    type_signal_rectangle_changed signal_rectangle_changed_;
+    type_signal_parameters_changed signal_parameters_changed_;
 
     void on_start_frame_change();
   };

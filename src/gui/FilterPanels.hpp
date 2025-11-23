@@ -37,8 +37,8 @@ namespace mdl {
     FilterPanelNoParameters(int start_frame, int max_frame);
 
   public:
-    MaybeRectangle get_rectangle() const override;
-    void set_rectangle(const Rectangle& rect) override;
+    Parameters get_parameters() const override;
+    void set_parameters(const Parameters& parameters) override;
     bool is_changed() const override;
     void set_changed(bool changed) override;
   };
@@ -85,8 +85,8 @@ namespace mdl {
                            int frame_width, int frame_height);
 
   public:
-    MaybeRectangle get_rectangle() const override;
-    void set_rectangle(const Rectangle& rect) override;
+    Parameters get_parameters() const override;
+    void set_parameters(const Parameters& parameters) override;
     bool is_changed() const override;
     void set_changed(bool changed) override;
 
