@@ -100,3 +100,13 @@ BOOST_AUTO_TEST_CASE(test_ffmpeg_str)
 
   BOOST_CHECK_EQUAL(ffmpeg, "drawbox=x=50:y=60:w=150:h=30:c=black:t=fill");
 }
+
+
+BOOST_AUTO_TEST_CASE(test_ffmpeg_audio_str)
+{
+  fg::DrawboxFilter filter(10, 15, 100, 150);
+
+  std::string ffmpeg(filter.ffmpeg_audio_str());
+
+  BOOST_CHECK_EQUAL(ffmpeg, "");
+}

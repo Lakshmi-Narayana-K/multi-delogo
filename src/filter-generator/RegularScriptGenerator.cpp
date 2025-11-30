@@ -127,8 +127,13 @@ void RegularScriptGenerator::generate_segment(std::ostream& out, int segment, fi
   }
   out << "[vs" << segment << "];\n";
 
+  std::string ffmpeg_audio_str = filter->ffmpeg_audio_str();
   out << "[0:a]" << generate_atrim(start_frame, next_start_frame)
-      << ",asetpts=PTS-STARTPTS" << "[as" << segment << "];\n";
+      << ",asetpts=PTS-STARTPTS";
+  if (ffmpeg_audio_str != "") {
+    out << "," << ffmpeg_audio_str;
+  }
+  out << "[as" << segment << "];\n";
 }
 
 

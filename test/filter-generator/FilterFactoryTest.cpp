@@ -86,6 +86,16 @@ BOOST_AUTO_TEST_CASE(test_load_cut_filter)
 }
 
 
+BOOST_AUTO_TEST_CASE(test_load_speed_filter)
+{
+  fg::filter_ptr filter = fg::FilterFactory::load("speed;1.33");
+
+  BOOST_CHECK_EQUAL(filter->type(), fg::FilterType::SPEED);
+  fg::SpeedFilter* sfilter = dynamic_cast<fg::SpeedFilter*>(filter.get());
+  BOOST_CHECK_EQUAL(sfilter->factor(), 1.33);
+}
+
+
 BOOST_AUTO_TEST_CASE(test_load_review_filter)
 {
   fg::filter_ptr filter = fg::FilterFactory::load("review;");
@@ -105,9 +115,16 @@ BOOST_AUTO_TEST_CASE(should_create_a_null_filter_with_no_rectangle)
 }
 
 
-BOOST_AUTO_TEST_CASE(should_create_a_null_filter_discarding_parameters)
+BOOST_AUTO_TEST_CASE(should_create_a_null_filter_discarding_rectangle_parameters)
 {
   fg::filter_ptr filter = fg::FilterFactory::create(fg::FilterType::NO_OP, 1, 2, 3, 4);
+  BOOST_CHECK(filter->type() == fg::FilterType::NO_OP);
+}
+
+
+BOOST_AUTO_TEST_CASE(should_create_a_null_filter_discarding_factor_parameter)
+{
+  fg::filter_ptr filter = fg::FilterFactory::create(fg::FilterType::NO_OP, 2.0);
   BOOST_CHECK(filter->type() == fg::FilterType::NO_OP);
 }
 
@@ -132,6 +149,13 @@ BOOST_AUTO_TEST_CASE(should_fail_if_trying_to_create_a_delogo_filter_without_par
 }
 
 
+BOOST_AUTO_TEST_CASE(should_fail_if_trying_to_create_a_delogo_filter_with_factor_parameter)
+{
+  BOOST_CHECK_THROW(fg::FilterFactory::create(fg::FilterType::DELOGO, 1.5),
+                    fg::InvalidParametersException);
+}
+
+
 BOOST_AUTO_TEST_CASE(should_create_a_drawbox_filter_with_parameters)
 {
   fg::filter_ptr filter = fg::FilterFactory::create(fg::FilterType::DRAWBOX, 50, 60, 70, 80);
@@ -152,10 +176,41 @@ BOOST_AUTO_TEST_CASE(should_fail_if_trying_to_create_a_drawbox_filter_without_pa
 }
 
 
+BOOST_AUTO_TEST_CASE(should_fail_if_trying_to_create_a_drawbox_filter_with_factor_parameter)
+{
+  BOOST_CHECK_THROW(fg::FilterFactory::create(fg::FilterType::DRAWBOX, 0.5),
+                    fg::InvalidParametersException);
+}
+
+
 BOOST_AUTO_TEST_CASE(should_create_a_cut_filter)
 {
   fg::filter_ptr filter = fg::FilterFactory::create(fg::FilterType::CUT);
   BOOST_CHECK(filter->type() == fg::FilterType::CUT);
+}
+
+
+BOOST_AUTO_TEST_CASE(should_create_a_speed_filter_with_parameters)
+{
+  fg::filter_ptr filter = fg::FilterFactory::create(fg::FilterType::SPEED, 1.5);
+  BOOST_CHECK(filter->type() == fg::FilterType::SPEED);
+
+  fg::SpeedFilter* speed = dynamic_cast<fg::SpeedFilter*>(filter.get());
+  BOOST_CHECK(speed->factor() == 1.5);
+}
+
+
+BOOST_AUTO_TEST_CASE(should_fail_if_trying_to_create_a_speed_filter_without_parameters)
+{
+  BOOST_CHECK_THROW(fg::FilterFactory::create(fg::FilterType::SPEED),
+                    fg::InvalidParametersException);
+}
+
+
+BOOST_AUTO_TEST_CASE(should_fail_if_trying_to_create_a_speed_filter_with_rectangle_parameters)
+{
+  BOOST_CHECK_THROW(fg::FilterFactory::create(fg::FilterType::SPEED, 10, 20, 30, 40),
+                    fg::InvalidParametersException);
 }
 
 
@@ -257,6 +312,30 @@ BOOST_AUTO_TEST_CASE(should_convert_from_cut_filter_to_drawbox)
   fg::filter_ptr converted = fg::FilterFactory::convert(filter, fg::FilterType::DRAWBOX);
 
   BOOST_CHECK(converted->type() == fg::FilterType::DRAWBOX);
+}
+
+
+BOOST_AUTO_TEST_CASE(should_convert_from_delogo_filter_to_speed)
+{
+  fg::filter_ptr filter(new fg::DelogoFilter(20, 30, 40, 50));
+
+  fg::filter_ptr converted = fg::FilterFactory::convert(filter, fg::FilterType::SPEED);
+
+  BOOST_CHECK(converted->type() == fg::FilterType::SPEED);
+  fg::SpeedFilter* speed = dynamic_cast<fg::SpeedFilter*>(converted.get());
+  BOOST_CHECK_EQUAL(speed->factor(), 1.0);
+}
+
+
+BOOST_AUTO_TEST_CASE(should_convert_from_cut_filter_to_speed)
+{
+  fg::filter_ptr filter(new fg::CutFilter());
+
+  fg::filter_ptr converted = fg::FilterFactory::convert(filter, fg::FilterType::SPEED);
+
+  BOOST_CHECK(converted->type() == fg::FilterType::SPEED);
+  fg::SpeedFilter* speed = dynamic_cast<fg::SpeedFilter*>(converted.get());
+  BOOST_CHECK_EQUAL(speed->factor(), 1.0);
 }
 
 

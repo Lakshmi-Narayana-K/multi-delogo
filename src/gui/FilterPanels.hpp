@@ -70,7 +70,36 @@ namespace mdl {
   };
 
 
-  class FilterPanelRectangular : public FilterPanel
+  class FilterPanelWithParameters: public FilterPanel
+  {
+  protected:
+    FilterPanelWithParameters(int start_frame, int max_frame);
+
+    void add_widget(Gtk::Widget& widget,
+                    const Glib::ustring& label, int row);
+  };
+
+
+  class FilterPanelSpeed : public FilterPanelWithParameters
+  {
+  public:
+    FilterPanelSpeed(int start_frame, int max_frame);
+    FilterPanelSpeed(int start_frame, int max_frame,
+                     std::shared_ptr<fg::SpeedFilter> filter);
+
+    fg::filter_ptr get_filter() const override;
+    Parameters get_parameters() const override;
+    void set_parameters(const Parameters& parameters) override;
+
+  private:
+    FilterPanelSpeed(int start_frame, int max_frame,
+                     double factor);
+
+    Gtk::SpinButton txt_factor_;
+  };
+
+
+  class FilterPanelRectangular : public FilterPanelWithParameters
   {
   protected:
     FilterPanelRectangular(int start_frame, int max_frame,
@@ -94,10 +123,6 @@ namespace mdl {
 
   private:
     Glib::RefPtr<Gtk::Adjustment> create_adjustment(int start_value, int max);
-    void add_widget(Gtk::Widget& widget,
-                    const Glib::ustring& label, int row);
-
-    void on_coordinate_change();
   };
 
 

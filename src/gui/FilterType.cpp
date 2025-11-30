@@ -31,12 +31,14 @@ FilterType::FilterType(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
   , rad_delogo_(nullptr)
   , rad_drawbox_(nullptr)
   , rad_cut_(nullptr)
+  , rad_speed_(nullptr)
   , rad_none_(nullptr)
   , rad_review_(nullptr)
 {
   builder->get_widget("rad_delogo", rad_delogo_);
   builder->get_widget("rad_drawbox", rad_drawbox_);
   builder->get_widget("rad_cut", rad_cut_);
+  builder->get_widget("rad_speed", rad_speed_);
   builder->get_widget("rad_none", rad_none_);
   builder->get_widget("rad_review", rad_review_);
 
@@ -49,6 +51,9 @@ FilterType::FilterType(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
   rad_cut_->signal_toggled().connect(
     sigc::bind<const Gtk::RadioButton&>(sigc::mem_fun(*this, &FilterType::on_radio_toggled),
                                         *rad_cut_));
+  rad_speed_->signal_toggled().connect(
+    sigc::bind<const Gtk::RadioButton&>(sigc::mem_fun(*this, &FilterType::on_radio_toggled),
+                                        *rad_speed_));
   rad_none_->signal_toggled().connect(
     sigc::bind<const Gtk::RadioButton&>(sigc::mem_fun(*this, &FilterType::on_radio_toggled),
                                         *rad_none_));
@@ -73,6 +78,10 @@ void FilterType::set(fg::FilterType type)
     rad_cut_->set_active();
     break;
 
+  case fg::FilterType::SPEED:
+    rad_speed_->set_active();
+    break;
+
   case fg::FilterType::REVIEW:
     rad_review_->set_active();
     break;
@@ -93,9 +102,11 @@ fg::FilterType FilterType::get() const
     return fg::FilterType::DRAWBOX;
   } else if (rad_cut_->get_active()) {
     return fg::FilterType::CUT;
+  } else if (rad_speed_->get_active()) {
+    return fg::FilterType::SPEED;
   } else if (rad_review_->get_active()) {
     return fg::FilterType::REVIEW;
- } else {
+  } else {
     return fg::FilterType::NO_OP;
   }
 }

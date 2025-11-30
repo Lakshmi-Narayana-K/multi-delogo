@@ -30,6 +30,7 @@ namespace fg {
     static filter_ptr load(const std::string& serialized);
     static filter_ptr create(FilterType type);
     static filter_ptr create(FilterType type, int x, int y, int width, int height);
+    static filter_ptr create(FilterType type, double speed);
     static filter_ptr convert(filter_ptr original, FilterType new_type);
 
   private:

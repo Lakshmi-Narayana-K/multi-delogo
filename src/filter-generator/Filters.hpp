@@ -32,6 +32,7 @@ namespace fg {
     DELOGO,
     DRAWBOX,
     CUT,
+    SPEED,
     REVIEW,
   };
 
@@ -46,6 +47,7 @@ namespace fg {
 
     virtual std::string save_str() const = 0;
     virtual std::string ffmpeg_str(int frame_width, int frame_height) const = 0;
+    virtual std::string ffmpeg_audio_str() const = 0;
   };
 
 
@@ -62,6 +64,7 @@ namespace fg {
 
     std::string save_str() const override;
     std::string ffmpeg_str(int frame_width, int frame_height) const override;
+    std::string ffmpeg_audio_str() const override;
   };
 
 
@@ -75,6 +78,8 @@ namespace fg {
     int y() const;
     int width() const;
     int height() const;
+
+    std::string ffmpeg_audio_str() const override;
 
   protected:
     static void load_rectangle(const std::string& parameters,
@@ -131,6 +136,28 @@ namespace fg {
 
     std::string save_str() const override;
     std::string ffmpeg_str(int frame_width, int frame_height) const override;
+    std::string ffmpeg_audio_str() const override;
+  };
+
+
+  class SpeedFilter : public Filter
+  {
+  public:
+    SpeedFilter(double factor);
+
+    static std::shared_ptr<SpeedFilter> load(const std::string& parameters);
+
+    double factor() const;
+
+    FilterType type() const override;
+    std::string name() const override;
+
+    std::string save_str() const override;
+    std::string ffmpeg_str(int frame_width, int frame_height) const override;
+    std::string ffmpeg_audio_str() const override;
+
+  private:
+    double factor_;
   };
 
 
@@ -144,6 +171,7 @@ namespace fg {
 
     std::string save_str() const override;
     std::string ffmpeg_str(int frame_width, int frame_height) const override;
+    std::string ffmpeg_audio_str() const override;
   };
 }
 

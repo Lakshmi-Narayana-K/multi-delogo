@@ -78,3 +78,12 @@ BOOST_AUTO_TEST_CASE(test_ffmpeg_str)
   BOOST_CHECK_EQUAL(ffmpeg, "");
 }
 
+
+BOOST_AUTO_TEST_CASE(test_ffmpeg_audio_str)
+{
+  fg::CutFilter filter;
+
+  std::string ffmpeg(filter.ffmpeg_audio_str());
+
+  BOOST_CHECK_EQUAL(ffmpeg, "");
+}

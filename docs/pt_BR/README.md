@@ -65,6 +65,8 @@ Um _filtro_ é uma modificação feita no vídeo, com o objetivo de remover os l
 
 * _drawbox_ desenha um retângulo preto sobre a região marcada. Para mais detalhes, veja [a documentação do ffmpeg](https://ffmpeg.org/ffmpeg-filters.html#drawbox).
 
+* _speed_ acelera ou desacelera o vídeo. Use um valor maior que 1 para acelerar, e menor que 1 para desacelerar.
+
 * _cut_ remove a parte do vídeo iniciando no quadro inicial do filtro até o início do próximo filtro. Se esse filtro for usado, o áudio terá que ser recodificado.
 
 * _none_ é usado para não aplicar um filtro a uma parte do vídeo.

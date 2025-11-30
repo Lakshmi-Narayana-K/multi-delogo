@@ -20,6 +20,8 @@
 #include <string>
 #include <stdexcept>
 #include <algorithm>
+#include <cstdio>
+#include <clocale>
 
 #include <boost/algorithm/string.hpp>
 
@@ -63,6 +65,12 @@ std::string NullFilter::save_str() const
 
 
 std::string NullFilter::ffmpeg_str(int frame_width, int frame_height) const
+{
+  return "";
+}
+
+
+std::string NullFilter::ffmpeg_audio_str() const
 {
   return "";
 }
@@ -143,6 +151,12 @@ std::string RectangularFilter::rectangle_ffmpeg_str(int x, int y, int width, int
   buf.append("w=").append(std::to_string(width)).push_back(':');
   buf.append("h=").append(std::to_string(height));
   return buf;
+}
+
+
+std::string RectangularFilter::ffmpeg_audio_str() const
+{
+  return "";
 }
 
 
@@ -272,6 +286,94 @@ std::string CutFilter::ffmpeg_str(int frame_width, int frame_height) const
 }
 
 
+std::string CutFilter::ffmpeg_audio_str() const
+{
+  return "";
+}
+
+
+SpeedFilter::SpeedFilter(double factor)
+  : factor_(factor)
+{
+}
+
+
+std::shared_ptr<SpeedFilter> SpeedFilter::load(const std::string& parameters)
+{
+  std::vector<std::string> factorstr;
+  boost::split(factorstr, parameters, boost::is_any_of(";"));
+  if (factorstr.size() != 1) {
+    throw InvalidParametersException();
+  }
+
+  try {
+    double factor = std::stod(factorstr[0]);
+    return std::shared_ptr<SpeedFilter>(new SpeedFilter(factor));
+  } catch (std::invalid_argument& e) {
+    throw InvalidParametersException();
+  }
+
+}
+
+
+double SpeedFilter::factor() const
+{
+  return factor_;
+}
+
+
+FilterType SpeedFilter::type() const
+{
+  return FilterType::SPEED;
+}
+
+
+std::string SpeedFilter::name() const
+{
+  return "speed";
+}
+
+
+std::string SpeedFilter::save_str() const
+{
+  char* previous_locale = setlocale(LC_NUMERIC, nullptr);
+  setlocale(LC_NUMERIC, "C");
+
+  char buffer[30];
+  snprintf(buffer, 30, "speed;%f", factor_);
+  return buffer;
+
+  setlocale(LC_NUMERIC, previous_locale);
+}
+
+
+std::string SpeedFilter::ffmpeg_str(int frame_width, int frame_height) const
+{
+  char* previous_locale = setlocale(LC_NUMERIC, nullptr);
+  setlocale(LC_NUMERIC, "C");
+
+  double ptsmultiplier = 1/factor_;
+  char buffer[30];
+  snprintf(buffer, 30, "setpts=%f*PTS", ptsmultiplier);
+  return buffer;
+
+  setlocale(LC_NUMERIC, previous_locale);
+}
+
+
+std::string SpeedFilter::ffmpeg_audio_str() const
+{
+  char* previous_locale = setlocale(LC_NUMERIC, nullptr);
+  setlocale(LC_NUMERIC, "C");
+
+  char buffer[30];
+  snprintf(buffer, 30, "atempo=%f", factor_);
+  return buffer;
+
+  setlocale(LC_NUMERIC, previous_locale);
+}
+
+
 std::shared_ptr<ReviewFilter> ReviewFilter::load(const std::string& parameters)
 {
   if (parameters != "") {
@@ -301,6 +403,12 @@ std::string ReviewFilter::save_str() const
 
 
 std::string ReviewFilter::ffmpeg_str(int frame_width, int frame_height) const
+{
+  return "";
+}
+
+
+std::string ReviewFilter::ffmpeg_audio_str() const
 {
   return "";
 }

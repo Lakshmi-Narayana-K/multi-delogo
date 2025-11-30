@@ -25,3 +25,4 @@ IOUtilsTest
 NullFilterTest
 RegularScriptGeneratorTest
 ReviewFilterTest
+SpeedFilterTest

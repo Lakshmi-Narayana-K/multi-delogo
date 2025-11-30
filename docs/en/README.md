@@ -65,6 +65,8 @@ A _filter_ is a modification done to the video, in order to remove the logos. Th
 
 * _drawbox_ draws a black blox over the marked region. For more details, see [the ffmpeg documentation](https://ffmpeg.org/ffmpeg-filters.html#drawbox).
 
+* _speed_ speeds up or slows down the video. Use a value greater than 1 for speeding up, and a value smaller than 1 for slowing down.
+
 * _cut_ removes the part of the video starting at its start frame up to the start of the next filter. Note that if this filter is used, the audio will need to be reencoded as well.
 
 * _none_ is used to not apply any filter to a part of the video.

@@ -43,6 +43,7 @@ BOOST_AUTO_TEST_CASE(should_generate_ffmpeg_script)
   list.insert(1001, filter_ptr(new NullFilter()));
   list.insert(1301, filter_ptr(new DrawboxFilter(30, 31, 32, 33)));
   list.insert(2001, filter_ptr(new DrawboxFilter(40, 41, 42, 43)));
+  list.insert(2501, filter_ptr(new SpeedFilter(1.5)));
   std::shared_ptr<ScriptGenerator> g = RegularScriptGenerator::create(list, 1920, 1080, 25, boost::none, boost::none);
 
   std::ostringstream out;
@@ -57,9 +58,11 @@ BOOST_AUTO_TEST_CASE(should_generate_ffmpeg_script)
     "[0:a]atrim=start=40.000:end=52.000,asetpts=PTS-STARTPTS[as2];\n"
     "[0:v]trim=start_frame=1300:end_frame=2000,setpts=PTS-STARTPTS,drawbox=x=30:y=31:w=32:h=33:c=black:t=fill[vs3];\n"
     "[0:a]atrim=start=52.000:end=80.000,asetpts=PTS-STARTPTS[as3];\n"
-    "[0:v]trim=start_frame=2000,setpts=PTS-STARTPTS,drawbox=x=40:y=41:w=42:h=43:c=black:t=fill[vs4];\n"
-    "[0:a]atrim=start=80.000,asetpts=PTS-STARTPTS[as4];\n"
-    "[vs0][as0][vs1][as1][vs2][as2][vs3][as3][vs4][as4]concat=n=5:v=1:a=1[out_v][out_a]";
+    "[0:v]trim=start_frame=2000:end_frame=2500,setpts=PTS-STARTPTS,drawbox=x=40:y=41:w=42:h=43:c=black:t=fill[vs4];\n"
+    "[0:a]atrim=start=80.000:end=100.000,asetpts=PTS-STARTPTS[as4];\n"
+    "[0:v]trim=start_frame=2500,setpts=PTS-STARTPTS,setpts=0.666667*PTS[vs5];\n"
+    "[0:a]atrim=start=100.000,asetpts=PTS-STARTPTS,atempo=1.500000[as5];\n"
+    "[vs0][as0][vs1][as1][vs2][as2][vs3][as3][vs4][as4][vs5][as5]concat=n=6:v=1:a=1[out_v][out_a]";
   BOOST_CHECK_EQUAL(out.str(), expected);
 }
 

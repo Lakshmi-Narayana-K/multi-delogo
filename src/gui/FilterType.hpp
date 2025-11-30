@@ -40,6 +40,7 @@ namespace mdl {
     Gtk::RadioButton* rad_delogo_;
     Gtk::RadioButton* rad_drawbox_;
     Gtk::RadioButton* rad_cut_;
+    Gtk::RadioButton* rad_speed_;
     Gtk::RadioButton* rad_none_;
     Gtk::RadioButton* rad_review_;
 

@@ -120,3 +120,13 @@ BOOST_AUTO_TEST_CASE(delogo_needs_a_one_pixel_margin_from_the_borders_br)
 
   BOOST_CHECK_EQUAL(ffmpeg, "delogo=x=1835:y=1067:w=84:h=12");
 }
+
+
+BOOST_AUTO_TEST_CASE(test_ffmpeg_audio_str)
+{
+  fg::DelogoFilter filter(1, 2, 3, 4);
+
+  std::string ffmpeg(filter.ffmpeg_audio_str());
+
+  BOOST_CHECK_EQUAL(ffmpeg, "");
+}

@@ -236,6 +236,50 @@ BOOST_AUTO_TEST_CASE(filter_panel_cut_should_return_no_parameters)
 }
 
 
+BOOST_AUTO_TEST_CASE(should_create_a_panel_for_speed_filter)
+{
+  fg::filter_ptr filter(new fg::SpeedFilter(2));
+  FilterPanel* panel = factory.create(1, filter);
+  FilterPanelSpeed* downcasted = dynamic_cast<FilterPanelSpeed*>(panel);
+
+  BOOST_CHECK(downcasted != nullptr);
+}
+
+
+BOOST_AUTO_TEST_CASE(should_create_a_panel_for_speed_filter_from_type)
+{
+  FilterPanel* panel = factory.create(1, fg::FilterType::SPEED);
+  FilterPanelSpeed* downcasted = dynamic_cast<FilterPanelSpeed*>(panel);
+
+  BOOST_CHECK(downcasted != nullptr);
+}
+
+
+BOOST_AUTO_TEST_CASE(filter_panel_speed_should_return_a_speed_filter)
+{
+  fg::filter_ptr filter(new fg::SpeedFilter(1.5));
+  FilterPanel* panel = factory.create(1, filter);
+
+  fg::filter_ptr created_filter = panel->get_filter();
+  BOOST_REQUIRE_EQUAL(created_filter->type(), fg::FilterType::SPEED);
+
+  fg::SpeedFilter* speed = dynamic_cast<fg::SpeedFilter*>(created_filter.get());
+  BOOST_CHECK_EQUAL(speed->factor(), 1.5);
+}
+
+
+BOOST_AUTO_TEST_CASE(filter_panel_speed_should_return_the_factor)
+{
+  fg::filter_ptr filter(new fg::SpeedFilter(1.25));
+  FilterPanel* panel = factory.create(1, filter);
+
+  auto parms = panel->get_parameters();
+  BOOST_REQUIRE(boost::variant2::holds_alternative<double>(parms));
+  double factor = boost::variant2::get<double>(parms);
+  BOOST_CHECK_EQUAL(factor, 1.25);
+}
+
+
 BOOST_AUTO_TEST_CASE(should_create_a_panel_for_review_filter)
 {
   fg::filter_ptr filter(new fg::ReviewFilter());

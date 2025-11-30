@@ -39,7 +39,11 @@ namespace mdl {
     virtual ~FilterPanel();
 
     typedef boost::variant2::monostate NoParameters;
-    typedef boost::variant2::variant<NoParameters, Rectangle> Parameters;
+    typedef boost::variant2::variant<
+      NoParameters,
+      Rectangle,
+      double
+      > Parameters;
 
     virtual bool creates_filter() const;
     virtual fg::filter_ptr get_filter() const = 0;
@@ -60,7 +64,8 @@ namespace mdl {
     type_signal_start_frame_changed signal_start_frame_changed_;
     type_signal_parameters_changed signal_parameters_changed_;
 
-    void on_start_frame_change();
+    void on_start_frame_changed();
+    void on_parameters_changed();
   };
 
 

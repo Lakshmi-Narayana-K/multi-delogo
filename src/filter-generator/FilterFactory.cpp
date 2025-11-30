@@ -50,6 +50,8 @@ filter_ptr FilterFactory::load(const std::string& type, const std::string& param
     return DrawboxFilter::load(parameters);
   } else if (type == "cut") {
     return CutFilter::load(parameters);
+  } else if (type == "speed") {
+    return SpeedFilter::load(parameters);
   } else if (type == "review") {
     return ReviewFilter::load(parameters);
   } else {
@@ -72,6 +74,7 @@ filter_ptr FilterFactory::create(FilterType type)
 
   case FilterType::DELOGO:
   case FilterType::DRAWBOX:
+  case FilterType::SPEED:
     throw InvalidParametersException();
 
   default:
@@ -88,6 +91,22 @@ filter_ptr FilterFactory::create(FilterType type, int x, int y, int width, int h
     return filter_ptr(new DrawboxFilter(x, y, width, height));
   } else if (is_no_parameters(type)) {
     return create(type);
+  } else if (type == FilterType::SPEED) {
+    throw InvalidParametersException();
+  }
+
+  throw UnknownFilterException();
+}
+
+
+filter_ptr FilterFactory::create(FilterType type, double factor)
+{
+  if (type == FilterType::SPEED) {
+    return filter_ptr(new SpeedFilter(factor));
+  } else if (is_no_parameters(type)) {
+    return create(type);
+  } else if (is_rectangular(type)) {
+    throw InvalidParametersException();
   }
 
   throw UnknownFilterException();
@@ -104,6 +123,10 @@ filter_ptr FilterFactory::convert(filter_ptr original, FilterType new_type)
 
   if (is_rectangular(new_type)) {
     return create(new_type, 0, 0, 0, 0);
+  }
+
+  if (new_type == FilterType::SPEED) {
+    return create(new_type, 1.0);
   }
 
   if (is_no_parameters(new_type) || is_no_parameters(original->type())) {

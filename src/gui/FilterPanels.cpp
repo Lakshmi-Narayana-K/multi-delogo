@@ -38,7 +38,7 @@ FilterPanel::FilterPanel(int start_frame, int max_frame)
 
   txt_start_frame_.configure(Gtk::Adjustment::create(start_frame, 1, max_frame), 10, 0);
   txt_start_frame_.signal_value_changed().connect(
-    sigc::mem_fun(*this, &FilterPanel::on_start_frame_change));
+    sigc::mem_fun(*this, &FilterPanel::on_start_frame_changed));
 
   lbl_start_frame_.set_halign(Gtk::ALIGN_END);
   attach(lbl_start_frame_, 0, -1, 1, 1);
@@ -75,9 +75,15 @@ FilterPanel::type_signal_parameters_changed FilterPanel::signal_parameters_chang
 }
 
 
-void FilterPanel::on_start_frame_change()
+void FilterPanel::on_start_frame_changed()
 {
   signal_start_frame_changed_.emit(txt_start_frame_.get_value_as_int());
+}
+
+
+void FilterPanel::on_parameters_changed()
+{
+  signal_parameters_changed_.emit(get_parameters());
 }
 
 
@@ -141,6 +147,70 @@ fg::filter_ptr FilterPanelReview::get_filter() const
 }
 
 
+FilterPanelWithParameters::FilterPanelWithParameters(int start_frame, int max_frame)
+  : FilterPanel(start_frame, max_frame)
+{
+}
+
+
+void FilterPanelWithParameters::add_widget(Gtk::Widget& widget,
+                                           const Glib::ustring& label, int row)
+{
+  Gtk::Label* l = Gtk::manage(new Gtk::Label(label, true));
+  l->set_mnemonic_widget(widget);
+  l->set_halign(Gtk::ALIGN_END);
+  attach(*l, 0, row, 1, 1);
+  attach_next_to(widget, *l, Gtk::POS_RIGHT, 1, 1);
+}
+
+
+FilterPanelSpeed::FilterPanelSpeed(int start_frame, int max_frame)
+  : FilterPanelSpeed(start_frame, max_frame, 1.0)
+{
+}
+
+
+FilterPanelSpeed::FilterPanelSpeed(int start_frame, int max_frame,
+                                   std::shared_ptr<fg::SpeedFilter> filter)
+  : FilterPanelSpeed(start_frame, max_frame, filter->factor())
+{
+}
+
+
+FilterPanelSpeed::FilterPanelSpeed(int start_frame, int max_frame,
+                                   double factor)
+  : FilterPanelWithParameters(start_frame, max_frame)
+{
+  txt_factor_.configure(Gtk::Adjustment::create(factor, 0.5, 10.0, 0.1), 0.1, 1);
+
+  add_widget(txt_factor_, _("_speed:"), 0);
+
+  txt_factor_.signal_value_changed().connect(
+    sigc::mem_fun(*this, &FilterPanelSpeed::on_parameters_changed));
+}
+
+
+fg::filter_ptr FilterPanelSpeed::get_filter() const
+{
+  return fg::filter_ptr(new fg::SpeedFilter(txt_factor_.get_value()));
+}
+
+
+FilterPanel::Parameters FilterPanelSpeed::get_parameters() const
+{
+  return Parameters(txt_factor_.get_value());
+}
+
+
+void FilterPanelSpeed::set_parameters(const Parameters& parameters)
+{
+  if (boost::variant2::holds_alternative<double>(parameters)) {
+    double factor = boost::variant2::get<double>(parameters);
+    txt_factor_.set_value(factor);
+  }
+}
+
+
 FilterPanelRectangular::FilterPanelRectangular(int start_frame, int max_frame,
                                                int frame_width, int frame_height)
   : FilterPanelRectangular(start_frame, max_frame,
@@ -163,7 +233,7 @@ FilterPanelRectangular::FilterPanelRectangular(int start_frame, int max_frame,
 FilterPanelRectangular::FilterPanelRectangular(int start_frame, int max_frame,
                                                int x, int y, int width, int height,
                                                int frame_width, int frame_height)
-  : FilterPanel(start_frame, max_frame)
+  : FilterPanelWithParameters(start_frame, max_frame)
 {
   txt_x_.configure(create_adjustment(x, frame_width - 1), 10, 0);
   txt_y_.configure(create_adjustment(y, frame_height - 1), 10, 0);
@@ -176,30 +246,19 @@ FilterPanelRectangular::FilterPanelRectangular(int start_frame, int max_frame,
   add_widget(txt_height_, _("_height:"), 3);
 
   txt_x_.signal_value_changed().connect(
-    sigc::mem_fun(*this, &FilterPanelRectangular::on_coordinate_change));
+    sigc::mem_fun(*this, &FilterPanelRectangular::on_parameters_changed));
   txt_y_.signal_value_changed().connect(
-    sigc::mem_fun(*this, &FilterPanelRectangular::on_coordinate_change));
+    sigc::mem_fun(*this, &FilterPanelRectangular::on_parameters_changed));
   txt_width_.signal_value_changed().connect(
-    sigc::mem_fun(*this, &FilterPanelRectangular::on_coordinate_change));
+    sigc::mem_fun(*this, &FilterPanelRectangular::on_parameters_changed));
   txt_height_.signal_value_changed().connect(
-    sigc::mem_fun(*this, &FilterPanelRectangular::on_coordinate_change));
+    sigc::mem_fun(*this, &FilterPanelRectangular::on_parameters_changed));
 }
 
 
 Glib::RefPtr<Gtk::Adjustment> FilterPanelRectangular::create_adjustment(int start_value, int max)
 {
   return Gtk::Adjustment::create(start_value, 0, max);
-}
-
-
-void FilterPanelRectangular::add_widget(Gtk::Widget& widget,
-                                        const Glib::ustring& label, int row)
-{
-  Gtk::Label* l = Gtk::manage(new Gtk::Label(label, true));
-  l->set_mnemonic_widget(widget);
-  l->set_halign(Gtk::ALIGN_END);
-  attach(*l, 0, row, 1, 1);
-  attach_next_to(widget, *l, Gtk::POS_RIGHT, 1, 1);
 }
 
 
@@ -215,17 +274,13 @@ FilterPanel::Parameters FilterPanelRectangular::get_parameters() const
 
 void FilterPanelRectangular::set_parameters(const Parameters& parameters)
 {
-  Rectangle rect = boost::variant2::get<Rectangle>(parameters);
-  txt_x_.set_value(rect.x);
-  txt_y_.set_value(rect.y);
-  txt_width_.set_value(rect.width);
-  txt_height_.set_value(rect.height);
-}
-
-
-void FilterPanelRectangular::on_coordinate_change()
-{
-  signal_parameters_changed_.emit(get_parameters());
+  if (boost::variant2::holds_alternative<Rectangle>(parameters)) {
+    Rectangle rect = boost::variant2::get<Rectangle>(parameters);
+    txt_x_.set_value(rect.x);
+    txt_y_.set_value(rect.y);
+    txt_width_.set_value(rect.width);
+    txt_height_.set_value(rect.height);
+  }
 }
 
 

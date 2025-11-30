@@ -46,6 +46,10 @@ FilterPanel* FilterPanelFactory::create(int start_frame, fg::filter_ptr filter)
   case fg::FilterType::CUT:
     return new FilterPanelCut(start_frame, max_frame_);
 
+  case fg::FilterType::SPEED:
+    return new FilterPanelSpeed(start_frame, max_frame_,
+                                std::dynamic_pointer_cast<fg::SpeedFilter>(filter));
+
   case fg::FilterType::DELOGO:
     return new FilterPanelDelogo(start_frame, max_frame_,
                                  std::dynamic_pointer_cast<fg::DelogoFilter>(filter),
@@ -73,6 +77,9 @@ FilterPanel* FilterPanelFactory::create(int start_frame, fg::FilterType type)
 
   case fg::FilterType::CUT:
     return new FilterPanelCut(start_frame, max_frame_);
+
+  case fg::FilterType::SPEED:
+    return new FilterPanelSpeed(start_frame, max_frame_);
 
   case fg::FilterType::DELOGO:
     return new FilterPanelDelogo(start_frame, max_frame_,

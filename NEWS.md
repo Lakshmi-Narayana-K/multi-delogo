@@ -2,6 +2,8 @@
 
 * Fix crash when opening a video.
 
+* Added a filter to speed up or slow down a video.
+
 * It is now possible to select the ffmpeg preset when encoding.
 
 * It is now possible to scale the encoded video.

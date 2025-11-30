@@ -372,7 +372,7 @@ along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
                   </packing>
                 </child>
                 <child>
-                  <!-- n-columns=2 n-rows=5 -->
+                  <!-- n-columns=2 n-rows=6 -->
                   <object class="GtkGrid" id="filter_type">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
@@ -447,7 +447,7 @@ along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
                       </object>
                       <packing>
                         <property name="left-attach">1</property>
-                        <property name="top-attach">3</property>
+                        <property name="top-attach">4</property>
                       </packing>
                     </child>
                     <child>
@@ -462,8 +462,26 @@ along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
                       </object>
                       <packing>
                         <property name="left-attach">1</property>
-                        <property name="top-attach">4</property>
+                        <property name="top-attach">5</property>
                       </packing>
+                    </child>
+                    <child>
+                      <object class="GtkRadioButton" id="rad_speed">
+                        <property name="label">speed</property>
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="receives-default">False</property>
+                        <property name="halign">start</property>
+                        <property name="draw-indicator">True</property>
+                        <property name="group">rad_delogo</property>
+                      </object>
+                      <packing>
+                        <property name="left-attach">1</property>
+                        <property name="top-attach">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <placeholder/>
                     </child>
                     <child>
                       <placeholder/>
