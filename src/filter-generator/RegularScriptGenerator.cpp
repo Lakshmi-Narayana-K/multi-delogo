@@ -38,8 +38,9 @@ using namespace fg;
 
 RegularScriptGenerator::RegularScriptGenerator(const FilterList& filter_list,
                                                int frame_width, int frame_height, double fps,
-                                               maybe_int scale_width, maybe_int scale_height)
-  : ScriptGenerator(fps)
+                                               maybe_int scale_width, maybe_int scale_height,
+                                               bool no_audio)
+  : ScriptGenerator(fps, no_audio)
   , filter_list_(filter_list)
   , frame_width_(frame_width)
   , frame_height_(frame_height)
@@ -50,9 +51,9 @@ RegularScriptGenerator::RegularScriptGenerator(const FilterList& filter_list,
 }
 
 
-std::shared_ptr<RegularScriptGenerator> RegularScriptGenerator::create(const FilterList& filter_list, int frame_width, int frame_height, double fps, maybe_int scale_width, maybe_int scale_height)
+std::shared_ptr<RegularScriptGenerator> RegularScriptGenerator::create(const FilterList& filter_list, int frame_width, int frame_height, double fps, maybe_int scale_width, maybe_int scale_height, bool no_audio)
 {
-  return std::shared_ptr<RegularScriptGenerator>(new RegularScriptGenerator(filter_list, frame_width, frame_height, fps, scale_width, scale_height));
+  return std::shared_ptr<RegularScriptGenerator>(new RegularScriptGenerator(filter_list, frame_width, frame_height, fps, scale_width, scale_height, no_audio));
 }
 
 
@@ -127,13 +128,15 @@ void RegularScriptGenerator::generate_segment(std::ostream& out, int segment, fi
   }
   out << "[vs" << segment << "];\n";
 
-  std::string ffmpeg_audio_str = filter->ffmpeg_audio_str();
-  out << "[0:a]" << generate_atrim(start_frame, next_start_frame)
-      << ",asetpts=PTS-STARTPTS";
-  if (ffmpeg_audio_str != "") {
-    out << "," << ffmpeg_audio_str;
+  if (!no_audio_) {
+    std::string ffmpeg_audio_str = filter->ffmpeg_audio_str();
+    out << "[0:a]" << generate_atrim(start_frame, next_start_frame)
+        << ",asetpts=PTS-STARTPTS";
+    if (ffmpeg_audio_str != "") {
+      out << "," << ffmpeg_audio_str;
+    }
+    out << "[as" << segment << "];\n";
   }
-  out << "[as" << segment << "];\n";
 }
 
 
@@ -165,10 +168,17 @@ std::string RegularScriptGenerator::generate_atrim(int start_frame, maybe_int ne
 
 void RegularScriptGenerator::generate_final_concat(std::ostream& out, int n_segments) const
 {
-  for (int i = 0; i < n_segments; ++i) {
-    out << "[vs" << i << "][as" << i << "]";
+  if (!no_audio_) {
+    for (int i = 0; i < n_segments; ++i) {
+      out << "[vs" << i << "][as" << i << "]";
+    }
+    out << "concat=n=" << n_segments << ":v=1:a=1[out_v][out_a]";
+  } else {
+    for (int i = 0; i < n_segments; ++i) {
+      out << "[vs" << i << "]";
+    }
+    out << "concat=n=" << n_segments << ":v=1:a=0[out_v]";
   }
-  out << "concat=n=" << n_segments << ":v=1:a=1[out_v][out_a]";
 }
 
 

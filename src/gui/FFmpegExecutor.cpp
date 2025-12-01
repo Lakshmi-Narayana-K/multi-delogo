@@ -164,8 +164,11 @@ std::vector<std::string> FFmpegExecutor::get_ffmpeg_cmd_line(const std::string& 
   cmd_line.push_back("-c:v"); cmd_line.push_back(codec_name);
   cmd_line.push_back("-crf"); cmd_line.push_back(quality_str);
 
-  std::vector<std::string> audio_opts = get_audio_opts();
-  cmd_line.insert(cmd_line.end(), audio_opts.begin(), audio_opts.end());
+  if (!generator_->no_audio()) {
+    cmd_line.push_back("-map"); cmd_line.push_back("[out_a]");
+    cmd_line.push_back("-c:a"); cmd_line.push_back("aac");
+    cmd_line.push_back("-b:a"); cmd_line.push_back("192k");
+  }
 
   cmd_line.push_back("-preset"); cmd_line.push_back(preset_);
 
@@ -176,18 +179,6 @@ std::vector<std::string> FFmpegExecutor::get_ffmpeg_cmd_line(const std::string& 
   cmd_line.push_back(output_file_);
 
   return cmd_line;
-}
-
-
-std::vector<std::string> FFmpegExecutor::get_audio_opts()
-{
-  std::vector<std::string> audio_opts;
-
-  audio_opts.push_back("-map"); audio_opts.push_back("[out_a]");
-  audio_opts.push_back("-c:a"); audio_opts.push_back("aac");
-  audio_opts.push_back("-b:a"); audio_opts.push_back("192k");
-
-  return audio_opts;
 }
 
 

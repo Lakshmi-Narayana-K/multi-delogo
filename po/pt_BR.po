@@ -22,8 +22,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: multi-delogo\n"
 "Report-Msgid-Bugs-To: werner.turing@protonmail.com\n"
-"POT-Creation-Date: 2025-11-30 19:45-0300\n"
-"PO-Revision-Date: 2025-11-30 19:48-0300\n"
+"POT-Creation-Date: 2025-12-01 08:19-0300\n"
+"PO-Revision-Date: 2025-12-01 08:20-0300\n"
 "Last-Translator: Werner Turing <werner.turing@protonmail.com>\n"
 "Language-Team: Werner Turing <werner.turing@protonmail.com>\n"
 "Language: pt_BR\n"
@@ -36,7 +36,7 @@ msgstr ""
 msgid "Overwrite filter starting at frame %1?"
 msgstr "Sobrescrever filtro iniciando em %1?"
 
-#: src/gui/Coordinator.cpp:372 src/gui/EncodeWindow.cpp:273
+#: src/gui/Coordinator.cpp:372 src/gui/EncodeWindow.cpp:276
 msgid "_Overwrite"
 msgstr "_Sobrescrever"
 
@@ -68,65 +68,65 @@ msgstr "Alterar quadro inicial de %1 para %2"
 msgid "Shift starting frames by %1 from %2 to %3"
 msgstr "Alterar quadros iniciais em %1 de %2 para %3"
 
-#: src/gui/EncodeWindow.cpp:151
+#: src/gui/EncodeWindow.cpp:154
 msgid "Select output file"
 msgstr "Selecione o arquivo de destino"
 
-#: src/gui/EncodeWindow.cpp:152 src/gui/EncodeWindow.cpp:273
+#: src/gui/EncodeWindow.cpp:155 src/gui/EncodeWindow.cpp:276
 #: src/gui/FindLogosWindow.cpp:206 src/gui/MultiDelogoApp.cpp:307
 msgid "_Cancel"
 msgstr "_Cancelar"
 
-#: src/gui/EncodeWindow.cpp:153
+#: src/gui/EncodeWindow.cpp:156
 msgid "_Save"
 msgstr "_Salvar"
 
-#: src/gui/EncodeWindow.cpp:198
+#: src/gui/EncodeWindow.cpp:201
 msgid "Encoding in progress"
 msgstr "Conversão sendo executada"
 
-#: src/gui/EncodeWindow.cpp:207
+#: src/gui/EncodeWindow.cpp:210
 msgid "Error generating filter script for FFmpeg: %1"
 msgstr "Erro ao gerar script de filtros para o FFmpeg: %1"
 
-#: src/gui/EncodeWindow.cpp:211
+#: src/gui/EncodeWindow.cpp:214
 msgid "Could not execute FFmpeg: %1"
 msgstr "Não foi possível executar o FFmpeg: %1"
 
-#: src/gui/EncodeWindow.cpp:232
+#: src/gui/EncodeWindow.cpp:235
 msgid "Filter script generated"
 msgstr "Script com filtros gerado"
 
-#: src/gui/EncodeWindow.cpp:235 src/gui/MultiDelogoApp.cpp:127
+#: src/gui/EncodeWindow.cpp:238 src/gui/MultiDelogoApp.cpp:127
 #: src/gui/MultiDelogoApp.cpp:243
 msgid "Could not open file %1: %2"
 msgstr "Não foi possível abrir o arquivo %1: %2"
 
-#: src/gui/EncodeWindow.cpp:253
+#: src/gui/EncodeWindow.cpp:256
 msgid "FILTER_FILE"
 msgstr "ARQUIVO_DE_FILTROS"
 
-#: src/gui/EncodeWindow.cpp:257
+#: src/gui/EncodeWindow.cpp:260
 msgid "FFmpeg command line"
 msgstr "Linha de comando FFmpeg"
 
-#: src/gui/EncodeWindow.cpp:265
+#: src/gui/EncodeWindow.cpp:268
 msgid "Please select the output file"
 msgstr "Por favor selecione o arquivo de destino"
 
-#: src/gui/EncodeWindow.cpp:272
+#: src/gui/EncodeWindow.cpp:275
 msgid "File %1 already exists. Overwrite?"
 msgstr "Arquivo %1 já existe. Sobrescrever?"
 
-#: src/gui/EncodeWindow.cpp:304
+#: src/gui/EncodeWindow.cpp:310
 msgid "Encoding finished successfully"
 msgstr "Conversão terminou com sucesso"
 
-#: src/gui/EncodeWindow.cpp:306
+#: src/gui/EncodeWindow.cpp:312
 msgid "Encoding failed: %1"
 msgstr "Conversão falhou: %1"
 
-#: src/gui/EncodeWindow.cpp:341
+#: src/gui/EncodeWindow.cpp:347
 msgid ""
 "Encoding is in progress. If it is cancelled now, it'll be necessary to "
 "restart encoding from the beginning. Really cancel?"
@@ -134,11 +134,11 @@ msgstr ""
 "A conversão está sendo executada. Se for cancelada agora, será necesário "
 "reiniciar a conversão do começo. Realmente deseja cancelar?"
 
-#: src/gui/EncodeWindow.cpp:342
+#: src/gui/EncodeWindow.cpp:348
 msgid "C_ancel encoding"
 msgstr "C_ancelar conversão"
 
-#: src/gui/EncodeWindow.cpp:342 src/gui/FindLogosWindow.cpp:234
+#: src/gui/EncodeWindow.cpp:348 src/gui/FindLogosWindow.cpp:234
 msgid "_Continue"
 msgstr "_Continuar"
 
@@ -191,11 +191,19 @@ msgstr "_Predefinição:"
 msgid "Sc_ale:"
 msgstr "_Redimensionar:"
 
-#: src/gui/EncodeWindow.ui:335
+#: src/gui/EncodeWindow.ui:328
+msgid "_No audio"
+msgstr "_Sem áudio"
+
+#: src/gui/EncodeWindow.ui:332
+msgid "Remove audio from the encoded video"
+msgstr "Remover áudio do vídeo convertido"
+
+#: src/gui/EncodeWindow.ui:351
 msgid "_Generate filter script"
 msgstr "_Gerar script com filtros"
 
-#: src/gui/EncodeWindow.ui:339
+#: src/gui/EncodeWindow.ui:355
 msgid ""
 "Generates a FFmpeg filter script file that can be used to encode the video. "
 "Use this option if you want to run FFmpeg manually with custom encoding "
@@ -205,19 +213,19 @@ msgstr ""
 "converter o vídeo. Selecione esta opção se você quiser executar o FFmpeg "
 "manualmente com opções de conversão personalizadas"
 
-#: src/gui/EncodeWindow.ui:350 src/gui/MovieWindow.ui:255
+#: src/gui/EncodeWindow.ui:366 src/gui/MovieWindow.ui:255
 msgid "_Encode"
 msgstr "_Converter"
 
-#: src/gui/EncodeWindow.ui:364
+#: src/gui/EncodeWindow.ui:380
 msgid "Show _command line"
 msgstr "Exibir linha de _comando"
 
-#: src/gui/EncodeWindow.ui:368
+#: src/gui/EncodeWindow.ui:384
 msgid "Show the FFmpeg command line used to encode the video"
 msgstr "Exibir a linha de comando do FFmpeg usada para converter o vídeo"
 
-#: src/gui/EncodeWindow.ui:418
+#: src/gui/EncodeWindow.ui:434
 msgid "View _log"
 msgstr "Ver _log"
 

@@ -38,12 +38,14 @@ namespace fg {
   protected:
     RegularScriptGenerator(const FilterList& filter_list,
                            int frame_width, int frame_height, double fps,
-                           maybe_int scale_width, maybe_int scale_height);
+                           maybe_int scale_width, maybe_int scale_height,
+                           bool no_audio);
 
   public:
     static std::shared_ptr<RegularScriptGenerator> create(const FilterList& filter_list,
                                                           int frame_width, int frame_height, double fps,
-                                                          maybe_int scale_width, maybe_int scale_height);
+                                                          maybe_int scale_width, maybe_int scale_height,
+                                                          bool no_audio);
 
     void generate_ffmpeg_script(std::ostream& out) const override;
     int resulting_frames(int original_frames) const override;

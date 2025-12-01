@@ -8,6 +8,8 @@
 
 * It is now possible to scale the encoded video.
 
+* It is now possible to remove audio from the encoded video.
+
 * Removed "Randomly increase filter times" feature.
 
 

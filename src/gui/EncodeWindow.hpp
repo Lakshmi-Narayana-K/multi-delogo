@@ -64,6 +64,8 @@ namespace mdl {
     Gtk::SpinButton* txt_scale_width_;
     Gtk::SpinButton* txt_scale_height_;
 
+    Gtk::CheckButton* chk_no_audio_;
+
     Gtk::Box* box_progress_;
     Gtk::Label* lbl_status_;
     ETRProgressBar* progress_bar_;

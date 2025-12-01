@@ -63,6 +63,7 @@ EncodeWindow::EncodeWindow(BaseObjectType* cobject,
   , txt_file_(nullptr)
   , txt_quality_(nullptr)
   , cmb_preset_(nullptr)
+  , chk_no_audio_(nullptr)
   , box_progress_(nullptr)
   , lbl_status_(nullptr)
   , progress_bar_(nullptr)
@@ -117,6 +118,8 @@ void EncodeWindow::configure_widgets(const Glib::RefPtr<Gtk::Builder>& builder)
   Gtk::Box* box_scale = nullptr;
   builder->get_widget("box_scale", box_scale);
   widgets_to_disable_.push_back(box_scale);
+
+  builder->get_widget("chk_no_audio", chk_no_audio_);
 
   Gtk::Button* btn_cmd_line = nullptr;
   builder->get_widget("btn_cmd_line", btn_cmd_line);
@@ -287,9 +290,12 @@ EncodeWindow::Generator EncodeWindow::get_generator()
     ? boost::make_optional(txt_scale_height_->get_value_as_int())
     : boost::none;
 
+  bool no_audio = chk_no_audio_->get_active();
+
   return fg::RegularScriptGenerator::create(filter_data_->filter_list(),
                                             frame_width_, frame_height_, fps_,
-                                            scale_width, scale_height);
+                                            scale_width, scale_height,
+                                            no_audio);
 }
 
 

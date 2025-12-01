@@ -26,18 +26,20 @@ namespace fg {
   class ScriptGenerator
   {
   public:
-    ScriptGenerator(double fps);
+    ScriptGenerator(double fps, bool no_audio);
 
     virtual ~ScriptGenerator() { };
 
     double fps();
     std::string fps_str();
+    bool no_audio();
     virtual void generate_ffmpeg_script(std::ostream& out) const = 0;
     virtual int resulting_frames(int original_frames) const = 0;
 
   protected:
     double fps_;
     std::string fps_str_;
+    bool no_audio_;
 
     std::string make_fps_str(double fps);
   };

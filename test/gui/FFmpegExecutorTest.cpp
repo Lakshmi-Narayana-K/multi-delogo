@@ -43,7 +43,7 @@ class FFmpegExecutorTestFixture
 public:
   FFmpegExecutorTestFixture()
   {
-    ffmpeg.set_generator(fg::RegularScriptGenerator::create(filters, 1920, 1080, 25, boost::none, boost::none));
+    ffmpeg.set_generator(fg::RegularScriptGenerator::create(filters, 1920, 1080, 25, boost::none, boost::none, false));
     ffmpeg.set_input_file("input.mp4");
     ffmpeg.set_output_file("output.mkv");
   }
@@ -141,14 +141,37 @@ BOOST_AUTO_TEST_CASE(test_ffmpeg_command_line_mp4_output)
              boost::test_tools::per_element());
 }
 
+
+BOOST_AUTO_TEST_CASE(test_ffmpeg_command_line_h265_without_audio)
+{
+  ffmpeg.set_generator(fg::RegularScriptGenerator::create(filters, 1920, 1080, 25, boost::none, boost::none, true));
+  ffmpeg.set_codec(FFmpegExecutor::Codec::H265);
+  ffmpeg.set_quality(25);
+  ffmpeg.set_preset("fast");
+
+  std::vector<std::string> expected{
+    "ffmpeg",
+    "-y",
+    "-i", "input.mp4",
+    "-/filter_complex", "filters.ffm",
+    "-r", "25.000000",
+    "-map", "[out_v]", "-c:v", "libx265", "-crf", "25",
+    "-preset", "fast",
+    "output.mkv"};
+  BOOST_TEST(get_ffmpeg_cmd_line() == expected,
+             boost::test_tools::per_element());
+}
+
+
 BOOST_AUTO_TEST_CASE(fps_should_use_dot_as_decimal_separator_regardless_of_locale)
 {
   char* previous_locale = setlocale(LC_NUMERIC, nullptr);
   setlocale(LC_NUMERIC, "pt_BR.UTF-8");
 
+  ffmpeg.set_codec(FFmpegExecutor::Codec::H264);
   ffmpeg.set_quality(28);
   ffmpeg.set_preset("medium");
-  ffmpeg.set_generator(fg::RegularScriptGenerator::create(filters, 1920, 1080, 29.97, boost::none, boost::none));
+  ffmpeg.set_generator(fg::RegularScriptGenerator::create(filters, 1920, 1080, 29.97, boost::none, boost::none, false));
 
   std::vector<std::string> expected{
     "ffmpeg",

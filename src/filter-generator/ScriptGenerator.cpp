@@ -24,8 +24,9 @@
 using namespace fg;
 
 
-ScriptGenerator::ScriptGenerator(double fps)
+ScriptGenerator::ScriptGenerator(double fps, bool no_audio)
   : fps_(fps)
+  , no_audio_(no_audio)
 {
   fps_str_ = make_fps_str(fps);
 }
@@ -50,4 +51,10 @@ double ScriptGenerator::fps()
 std::string ScriptGenerator::fps_str()
 {
   return fps_str_;
+}
+
+
+bool ScriptGenerator::no_audio()
+{
+  return no_audio_;
 }
