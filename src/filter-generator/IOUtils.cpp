@@ -25,7 +25,7 @@
 std::istream& fg::getline(std::istream& is, std::string& str)
 {
   std::getline(is, str);
-  if (str.back() == '\r') {
+  if (!str.empty() && str.back() == '\r') {
     str.pop_back();
   }
 
