@@ -1,4 +1,4 @@
-## Upcoming version
+## 2.5.0
 
 * Fix crash when opening a video.
 
