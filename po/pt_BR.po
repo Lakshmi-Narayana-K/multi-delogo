@@ -22,7 +22,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: multi-delogo\n"
 "Report-Msgid-Bugs-To: werner.turing@protonmail.com\n"
-"POT-Creation-Date: 2025-12-01 08:19-0300\n"
+"POT-Creation-Date: 2026-01-07 17:29+0530\n"
 "PO-Revision-Date: 2025-12-01 08:20-0300\n"
 "Last-Translator: Werner Turing <werner.turing@protonmail.com>\n"
 "Language-Team: Werner Turing <werner.turing@protonmail.com>\n"
@@ -142,39 +142,39 @@ msgstr "C_ancelar conversão"
 msgid "_Continue"
 msgstr "_Continuar"
 
-#: src/gui/EncodeWindow.ui:61
+#: src/gui/EncodeWindow.ui:54
 msgid "Encode video"
 msgstr "Converter vídeo"
 
-#: src/gui/EncodeWindow.ui:78
+#: src/gui/EncodeWindow.ui:71
 msgid "_Output file:"
 msgstr "_Arquivo de destino:"
 
-#: src/gui/EncodeWindow.ui:101
+#: src/gui/EncodeWindow.ui:94
 msgid "_Select"
 msgstr "_Selecionar"
 
-#: src/gui/EncodeWindow.ui:131
+#: src/gui/EncodeWindow.ui:124
 msgid "Video format:"
 msgstr "Formato do vídeo:"
 
-#: src/gui/EncodeWindow.ui:145
+#: src/gui/EncodeWindow.ui:138
 msgid "Most compatible video format. If in doubt, use this format"
 msgstr ""
 "Formato de vídeo mais compatível. Se estiver em dúvida, use este formato"
 
-#: src/gui/EncodeWindow.ui:162
+#: src/gui/EncodeWindow.ui:155
 msgid ""
 "A newer format that produces smaller video files. May not work on all players"
 msgstr ""
 "Um formato mais novo que gera arquivos menores. Pode não ser suportado por "
 "todos os players"
 
-#: src/gui/EncodeWindow.ui:191
+#: src/gui/EncodeWindow.ui:184
 msgid "_Quality:"
 msgstr "_Qualidade:"
 
-#: src/gui/EncodeWindow.ui:205
+#: src/gui/EncodeWindow.ui:198
 msgid ""
 "CRF value to use for encoding. Lower values generally lead to higher "
 "quality, but bigger files. If in doubt, accept the default"
@@ -183,27 +183,27 @@ msgstr ""
 "produzem melhor qualidade, mas arquivos maiores. Se estiver em dúvida, use o "
 "padrão"
 
-#: src/gui/EncodeWindow.ui:219
+#: src/gui/EncodeWindow.ui:212
 msgid "_Preset:"
 msgstr "_Predefinição:"
 
-#: src/gui/EncodeWindow.ui:264
+#: src/gui/EncodeWindow.ui:257
 msgid "Sc_ale:"
 msgstr "_Redimensionar:"
 
-#: src/gui/EncodeWindow.ui:328
+#: src/gui/EncodeWindow.ui:321
 msgid "_No audio"
 msgstr "_Sem áudio"
 
-#: src/gui/EncodeWindow.ui:332
+#: src/gui/EncodeWindow.ui:325
 msgid "Remove audio from the encoded video"
 msgstr "Remover áudio do vídeo convertido"
 
-#: src/gui/EncodeWindow.ui:351
+#: src/gui/EncodeWindow.ui:344
 msgid "_Generate filter script"
 msgstr "_Gerar script com filtros"
 
-#: src/gui/EncodeWindow.ui:355
+#: src/gui/EncodeWindow.ui:348
 msgid ""
 "Generates a FFmpeg filter script file that can be used to encode the video. "
 "Use this option if you want to run FFmpeg manually with custom encoding "
@@ -213,19 +213,19 @@ msgstr ""
 "converter o vídeo. Selecione esta opção se você quiser executar o FFmpeg "
 "manualmente com opções de conversão personalizadas"
 
-#: src/gui/EncodeWindow.ui:366 src/gui/MovieWindow.ui:255
+#: src/gui/EncodeWindow.ui:359 src/gui/MovieWindow.ui:255
 msgid "_Encode"
 msgstr "_Converter"
 
-#: src/gui/EncodeWindow.ui:380
+#: src/gui/EncodeWindow.ui:373
 msgid "Show _command line"
 msgstr "Exibir linha de _comando"
 
-#: src/gui/EncodeWindow.ui:384
+#: src/gui/EncodeWindow.ui:377
 msgid "Show the FFmpeg command line used to encode the video"
 msgstr "Exibir a linha de comando do FFmpeg usada para converter o vídeo"
 
-#: src/gui/EncodeWindow.ui:434
+#: src/gui/EncodeWindow.ui:427
 msgid "View _log"
 msgstr "Ver _log"
 
@@ -561,8 +561,8 @@ msgstr "Quadro anterior:"
 #: src/gui/MovieWindow.ui:592
 msgid "Jump back the number of frames specified in \"jump size\" (a)"
 msgstr ""
-"Saltar para frente o número de quadros especificado em \"tamanho do salto\" "
-"(a)"
+"Saltar para frente o número de quadros especificado em \"tamanho do "
+"salto\" (a)"
 
 #: src/gui/MovieWindow.ui:606
 msgid "Move back one frame (s)"

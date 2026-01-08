@@ -156,7 +156,7 @@ std::vector<std::string> FFmpegExecutor::get_ffmpeg_cmd_line(const std::string& 
   cmd_line.push_back("-y");
 
   cmd_line.push_back("-i"); cmd_line.push_back(input_file_);
-  cmd_line.push_back("-/filter_complex"); cmd_line.push_back(filter_file);
+  cmd_line.push_back("-filter_complex_script"); cmd_line.push_back(filter_file);
 
   cmd_line.push_back("-r"); cmd_line.push_back(generator_->fps_str());
 
