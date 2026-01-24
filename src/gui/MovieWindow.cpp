@@ -33,6 +33,7 @@
 #include "Coordinator.hpp"
 #include "MultiDelogoApp.hpp"
 #include "FindLogosWindow.hpp"
+#include "AutoReplaceWindow.hpp"
 #include "EncodeWindow.hpp"
 
 using namespace mdl;
@@ -143,6 +144,11 @@ void MovieWindow::configure_toolbar(const Glib::RefPtr<Gtk::Builder>& builder,
   builder->get_widget("btn_find_logos", btn_find_logos);
   gtk_actionable_set_action_name(GTK_ACTIONABLE(btn_find_logos->gobj()), "win.find-logos");
 
+  add_action("auto-replace", sigc::mem_fun(*this, &MovieWindow::on_auto_replace));
+  Gtk::ToolButton* btn_auto_replace = nullptr;
+  builder->get_widget("btn_auto_replace", btn_auto_replace);
+  gtk_actionable_set_action_name(GTK_ACTIONABLE(btn_auto_replace->gobj()), "win.auto-replace");
+
   add_action("encode", sigc::mem_fun(*this, &MovieWindow::on_encode));
   Gtk::ToolButton* btn_encode = nullptr;
   builder->get_widget("btn_encode", btn_encode);
@@ -205,6 +211,23 @@ void MovieWindow::on_find_logos()
                               get_application()->is_verbose());
   window->set_transient_for(*this);
   window->set_modal();
+  window->signal_hide().connect(sigc::mem_fun(*filter_list_, &FilterList::refresh_list));
+
+  get_application()->register_window(window);
+}
+
+
+void MovieWindow::on_auto_replace()
+{
+  AutoReplaceWindow* window
+    = AutoReplaceWindow::create(*filter_data_,
+                                frame_navigator_->get_number_of_frames(),
+                                frame_navigator_->get_frame_width(),
+                                frame_navigator_->get_frame_height(),
+                                filter_data_->movie_file());
+  window->set_transient_for(*this);
+  window->set_modal();
+  window->signal_filters_applied().connect(sigc::mem_fun(*filter_list_, &FilterList::refresh_list));
   window->signal_hide().connect(sigc::mem_fun(*filter_list_, &FilterList::refresh_list));
 
   get_application()->register_window(window);

@@ -15,8 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
 
-SUBDIRS = filter-generator \
-          opencv-frame-provider \
-          opencv-logo-finder \
-          batch-delogo \
-          gui
+bin_PROGRAMS = batch-delogo
+
+batch_delogo_SOURCES = batch-delogo.cpp
+
+batch_delogo_CPPFLAGS = -I.. $(OPENCV_CFLAGS) $(JSONCPP_CFLAGS)
+
+batch_delogo_LDADD = ../filter-generator/libfilter-generator.a \
+                     $(OPENCV_LIBS) \
+                     -lopencv_imgcodecs \
+                     $(JSONCPP_LIBS)
+

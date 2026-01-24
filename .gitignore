@@ -109,3 +109,6 @@ test/**/*.trs
 
 # Tag file for editor jumping
 TAGS
+videos_to_process/*.mp4
+processed_videos/*.mp4
+*.png

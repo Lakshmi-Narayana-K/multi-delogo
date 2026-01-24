@@ -1,0 +1,79 @@
+{
+  "images_dir": "overlay-images",
+  "reference_dir": "reference_images",
+  "detection_enabled": true,
+  "layouts": [
+    {
+      "id": "nxtwave_1080p",
+      "name": "NxtWave Videos (1920x1080)",
+      "resolution": {"width": 1920, "height": 1080},
+      "detections": [
+        {
+          "name": "Speaker Full Screen - Top Right Logo",
+          "reference_image": "speaker_full_screen.png",
+          "replacement_image": "nxtwave_circle_logo_replacement.png",
+          "search_region": {
+            "x": 1600,
+            "y": 0,
+            "width": 320,
+            "height": 250
+          },
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
+        },
+        {
+          "name": "Speaker Top Right Corner - Small Logo",
+          "reference_image": "speaker_top_right.png",
+          "replacement_image": "nxtwave_circle_logo_replacement.png",
+          "search_region": {
+            "x": 1750,
+            "y": 0,
+            "width": 170,
+            "height": 120
+          },
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
+        },
+        {
+          "name": "Logo Bottom Right",
+          "reference_image": "logo-bottom-right.png",
+          "replacement_image": "nxtwave_logo_replacement.png",
+          "search_region": {
+            "x": 1650,
+            "y": 850,
+            "width": 270,
+            "height": 230
+          },
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
+        },
+        {
+          "name": "Logo in Slide",
+          "reference_image": "slide_full_logo.png",
+          "replacement_image": "nxtwave_logo_replacement.png",
+          "search_region": {
+            "x": 0,
+            "y": 500,
+            "width": 450,
+            "height": 580
+          },
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
+        },
+        {
+          "name": "Small Logo in Slide Corner",
+          "reference_image": "slide_corner_logo.png",
+          "replacement_image": "nxtwave_logo_replacement.png",
+          "search_region": {
+            "x": 340,
+            "y": 1100,
+            "width": 100,
+            "height": 100
+          },
+          "match_threshold": 0.6,
+          "replacement_scale": 0.5
+        }
+      ]
+    }
+  ]
+}

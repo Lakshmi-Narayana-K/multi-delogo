@@ -23,7 +23,8 @@ noinst_HEADERS = Exceptions.hpp \
                  ScriptGenerator.hpp \
                  RegularScriptGenerator.hpp \
                  FilterData.hpp \
-                 ImagePreset.hpp
+                 ImagePreset.hpp \
+                 VideoLayoutConfig.hpp
 
 noinst_LIBRARIES = libfilter-generator.a
 
@@ -34,6 +35,7 @@ libfilter_generator_a_SOURCES = IOUtils.cpp \
 				ScriptGenerator.cpp \
                                 RegularScriptGenerator.cpp \
                                 FilterData.cpp \
-                                ImagePreset.cpp
+                                ImagePreset.cpp \
+                                VideoLayoutConfig.cpp
 
 libfilter_generator_a_CPPFLAGS = $(JSONCPP_CFLAGS)

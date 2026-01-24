@@ -67,6 +67,7 @@ namespace mdl {
 
     void on_save();
     void on_find_logos();
+    void on_auto_replace();
     void on_encode();
 
     void on_scroll_filter_toggled(Gtk::ToggleToolButton* chk);
