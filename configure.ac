@@ -88,6 +88,7 @@ AC_CONFIG_FILES([Makefile
                  src/filter-generator/Makefile
                  src/opencv-frame-provider/Makefile
                  src/opencv-logo-finder/Makefile
+                 src/batch-delogo/Makefile
                  src/gui/Makefile
                  test/Makefile
                  test/filter-generator/Makefile

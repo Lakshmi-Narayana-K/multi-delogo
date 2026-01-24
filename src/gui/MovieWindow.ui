@@ -248,6 +248,19 @@ along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
               </packing>
             </child>
             <child>
+              <object class="GtkToolButton" id="btn_auto_replace">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Auto-replace logos at predefined positions</property>
+                <property name="label" translatable="yes">Auto Replace</property>
+                <property name="icon-name">emblem-synchronizing</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkToolButton" id="btn_encode">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>

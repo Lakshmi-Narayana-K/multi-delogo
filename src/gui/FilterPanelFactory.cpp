@@ -96,7 +96,7 @@ FilterPanel* FilterPanelFactory::create(int start_frame, fg::FilterType type)
 
   case fg::FilterType::IMAGE_OVERLAY:
     return new FilterPanelImageOverlay(start_frame, max_frame_,
-                                       frame_width_, frame_height_);
+                                  frame_width_, frame_height_);
 
   case fg::FilterType::REVIEW:
     return new FilterPanelReview(start_frame, max_frame_);
