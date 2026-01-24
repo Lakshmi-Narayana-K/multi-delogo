@@ -24,9 +24,11 @@
 #include "common/FrameProvider.hpp"
 
 #include "filter-generator/FilterData.hpp"
+#include "filter-generator/ImagePreset.hpp"
 
 #include "MovieWindow.hpp"
 #include "FilterList.hpp"
+#include "FilterPanels.hpp"
 #include "FrameNavigator.hpp"
 #include "Coordinator.hpp"
 #include "MultiDelogoApp.hpp"
@@ -67,6 +69,9 @@ MovieWindow::MovieWindow(BaseObjectType* cobject,
 {
   set_title(Glib::ustring::compose("multi-delogo: %1",
                                    Glib::path_get_basename(project_file)));
+
+  // Load image presets
+  load_image_presets();
 
   configure_toolbar(builder, app);
   coordinator_.set_undo_buttons(btn_undo_, btn_redo_);
@@ -255,4 +260,48 @@ void MovieWindow::on_hide()
   if (filter_data_) {
     on_save();
   }
+}
+
+
+void MovieWindow::load_image_presets()
+{
+  auto preset_manager = std::make_shared<fg::ImagePresetManager>();
+  
+  // Try to load presets from multiple locations (in order of priority):
+  // JSON files are checked first, then legacy .conf files
+  // 1. Same directory as project file: image_presets.json / image_presets.conf
+  // 2. Same directory as video file: image_presets.json / image_presets.conf
+  // 3. Home directory: .multi-delogo-presets.json / .multi-delogo-presets.conf
+  
+  std::vector<std::string> search_paths;
+  
+  // Project directory
+  std::string project_dir = Glib::path_get_dirname(project_file_);
+  search_paths.push_back(Glib::build_filename(project_dir, "image_presets.json"));
+  search_paths.push_back(Glib::build_filename(project_dir, "image_presets.conf"));
+  
+  // Video directory (if different from project)
+  std::string video_dir = Glib::path_get_dirname(filter_data_->movie_file());
+  if (video_dir != project_dir) {
+    search_paths.push_back(Glib::build_filename(video_dir, "image_presets.json"));
+    search_paths.push_back(Glib::build_filename(video_dir, "image_presets.conf"));
+  }
+  
+  // Home directory
+  const char* home = g_get_home_dir();
+  if (home) {
+    search_paths.push_back(Glib::build_filename(home, ".multi-delogo-presets.json"));
+    search_paths.push_back(Glib::build_filename(home, ".multi-delogo-presets.conf"));
+  }
+  
+  // Try each path
+  for (const auto& path : search_paths) {
+    if (preset_manager->load_from_file(path)) {
+      // Successfully loaded presets
+      break;
+    }
+  }
+  
+  // Set the preset manager for overlay panels to use
+  FilterPanelImageOverlay::set_preset_manager(preset_manager);
 }

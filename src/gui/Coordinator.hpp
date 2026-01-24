@@ -68,8 +68,10 @@ namespace mdl {
     FilterPanelFactory panel_factory_;
     FilterPanel* current_filter_panel_;
     int current_filter_start_frame_;
+    int current_filter_end_frame_;
     fg::filter_ptr current_filter_;
     bool scroll_filter_;
+    bool skip_filter_reselection_;  // Flag to prevent on_frame_changed from changing selection
 
 
     sigc::connection on_filter_selected_;
@@ -100,9 +102,13 @@ namespace mdl {
     bool confirm_overwrite_by_start_frame_change(int start_frame);
     void set_start_frame_in_filter_panel(int start_frame);
 
+    sigc::connection on_end_frame_changed_;
+    void on_end_frame_changed(int end_frame);
+
     void create_new_filter_panel();
 
     void on_remove_filter();
+    void on_delete_all();
 
     void remove_filter(int start_frame);
     void insert_filter(int start_frame, fg::filter_ptr filter);

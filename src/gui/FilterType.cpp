@@ -30,6 +30,7 @@ FilterType::FilterType(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
   : Gtk::Grid(cobject)
   , rad_delogo_(nullptr)
   , rad_drawbox_(nullptr)
+  , rad_overlay_(nullptr)
   , rad_cut_(nullptr)
   , rad_speed_(nullptr)
   , rad_none_(nullptr)
@@ -37,6 +38,7 @@ FilterType::FilterType(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
 {
   builder->get_widget("rad_delogo", rad_delogo_);
   builder->get_widget("rad_drawbox", rad_drawbox_);
+  builder->get_widget("rad_overlay", rad_overlay_);
   builder->get_widget("rad_cut", rad_cut_);
   builder->get_widget("rad_speed", rad_speed_);
   builder->get_widget("rad_none", rad_none_);
@@ -48,6 +50,11 @@ FilterType::FilterType(BaseObjectType* cobject, const Glib::RefPtr<Gtk::Builder>
   rad_drawbox_->signal_toggled().connect(
     sigc::bind<const Gtk::RadioButton&>(sigc::mem_fun(*this, &FilterType::on_radio_toggled),
                                         *rad_drawbox_));
+  if (rad_overlay_) {
+    rad_overlay_->signal_toggled().connect(
+      sigc::bind<const Gtk::RadioButton&>(sigc::mem_fun(*this, &FilterType::on_radio_toggled),
+                                          *rad_overlay_));
+  }
   rad_cut_->signal_toggled().connect(
     sigc::bind<const Gtk::RadioButton&>(sigc::mem_fun(*this, &FilterType::on_radio_toggled),
                                         *rad_cut_));
@@ -72,6 +79,12 @@ void FilterType::set(fg::FilterType type)
 
   case fg::FilterType::DRAWBOX:
     rad_drawbox_->set_active();
+    break;
+
+  case fg::FilterType::IMAGE_OVERLAY:
+    if (rad_overlay_) {
+      rad_overlay_->set_active();
+    }
     break;
 
   case fg::FilterType::CUT:
@@ -100,6 +113,8 @@ fg::FilterType FilterType::get() const
     return fg::FilterType::DELOGO;
   } else if (rad_drawbox_->get_active()) {
     return fg::FilterType::DRAWBOX;
+  } else if (rad_overlay_ && rad_overlay_->get_active()) {
+    return fg::FilterType::IMAGE_OVERLAY;
   } else if (rad_cut_->get_active()) {
     return fg::FilterType::CUT;
   } else if (rad_speed_->get_active()) {

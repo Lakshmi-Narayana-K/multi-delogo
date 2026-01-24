@@ -37,6 +37,7 @@ using namespace mdl;
 FilterListColumns::FilterListColumns()
 {
   add(start_frame);
+  add(end_frame);
   add(filter);
   add(filter_name);
 }
@@ -92,11 +93,17 @@ FilterListModel::iterator FilterListModel::get_by_start_frame(int start_frame)
 
 FilterListModel::iterator FilterListModel::insert(int start_frame, fg::filter_ptr filter)
 {
+  return insert(start_frame, fg::NO_END_FRAME, filter);
+}
+
+
+FilterListModel::iterator FilterListModel::insert(int start_frame, int end_frame, fg::filter_ptr filter)
+{
   if (filter_list_.get_by_start_frame(start_frame)) {
     throw DuplicateRowException();
   }
 
-  filter_list_.insert(start_frame, filter);
+  filter_list_.insert(start_frame, end_frame, filter);
   ++stamp_;
 
   int pos = filter_list_.get_position(start_frame);
@@ -126,6 +133,20 @@ void FilterListModel::remove(const iterator& iter)
   filter_list_.remove(filter->first);
   ++stamp_;
   row_deleted(path);
+}
+
+
+void FilterListModel::clear()
+{
+  // Emit row_deleted signals for each row from end to beginning
+  int size = filter_list_.size();
+  for (int i = size - 1; i >= 0; --i) {
+    Path path;
+    path.push_back(i);
+    filter_list_.remove_by_index(i);
+    ++stamp_;
+    row_deleted(path);
+  }
 }
 
 
@@ -314,22 +335,24 @@ void FilterListModel::get_value_vfunc(const const_iterator& iter, int column, Gl
     return;
   }
 
-  fg::FilterList::maybe_type filter = get_filter_by_iter(iter);
-  if (!filter) {
+  fg::FilterList::maybe_entry_type entry = get_entry_by_iter(iter);
+  if (!entry) {
     g_warning("FilterListModel::get_value_vfunc: no filter found");
     return;
   }
 
   g_value_init(value.gobj(), get_column_type(column));
   if (column == columns.start_frame.index()) {
-    g_value_set_int(value.gobj(), filter->first);
+    g_value_set_int(value.gobj(), entry->start_frame);
+  } else if (column == columns.end_frame.index()) {
+    g_value_set_int(value.gobj(), entry->end_frame);
   } else if (column == columns.filter.index()) {
     Glib::Value<fg::filter_ptr> value_specific;
     value_specific.init(Glib::Value<fg::filter_ptr>::value_type());
-    value_specific.set(filter->second);
+    value_specific.set(entry->filter);
     value = value_specific;
   } else if (column == columns.filter_name.index()) {
-    g_value_set_string(value.gobj(), filter->second->name().c_str());
+    g_value_set_string(value.gobj(), entry->filter->name().c_str());
   }
 }
 
@@ -345,6 +368,8 @@ void FilterListModel::set_value_impl(const iterator& iter, int column, const Gli
 
   if (column == columns.start_frame.index()) {
     set_value_start_frame(iter, value);
+  } else if (column == columns.end_frame.index()) {
+    set_value_end_frame(iter, value);
   } else if (column == columns.filter.index()) {
     set_value_filter(iter, value);
   } else if (column == columns.filter_name.index()) {
@@ -377,18 +402,31 @@ void FilterListModel::set_value_start_frame(const iterator& iter, const Glib::Va
 }
 
 
+void FilterListModel::set_value_end_frame(const iterator& iter, const Glib::ValueBase& value)
+{
+  Glib::Value<int> end_frame_value;
+  end_frame_value.init(value.gobj());
+  int new_end_frame = end_frame_value.get();
+  int start_frame = (*iter)[columns.start_frame];
+
+  filter_list_.change_end_frame(start_frame, new_end_frame);
+
+  row_changed(get_path(iter), iter);
+}
+
+
 void FilterListModel::set_value_filter(const iterator& iter, const Glib::ValueBase& value)
 {
   Glib::Value<fg::filter_ptr> filter_value;
   filter_value.init(value.gobj());
 
-  fg::FilterList::maybe_type filter = get_filter_by_iter(iter);
-  if (!filter) {
+  fg::FilterList::maybe_entry_type entry = get_entry_by_iter(iter);
+  if (!entry) {
     g_warning("FilterListModel::set_value_impl: filter_not_found");
     return;
   }
 
-  filter_list_.insert(filter->first, filter_value.get());
+  filter_list_.insert(entry->start_frame, entry->end_frame, filter_value.get());
 
   row_changed(get_path(iter), iter);
 }
@@ -404,6 +442,13 @@ fg::FilterList::maybe_type FilterListModel::get_filter_by_iter(const iterator& i
 {
   int pos = get_position(iter);
   return filter_list_.get_by_position(pos);
+}
+
+
+fg::FilterList::maybe_entry_type FilterListModel::get_entry_by_iter(const iterator& iter) const
+{
+  int pos = get_position(iter);
+  return filter_list_.get_entry_by_position(pos);
 }
 
 

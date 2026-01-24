@@ -84,7 +84,8 @@ multi_delogo_CPPFLAGS = -DLOCALEDIR=\"$(localedir)\" \
                         -I.. \
                         $(PTHREAD_CFLAGS) \
                         $(GTKMM_CFLAGS) \
-                        $(GOOCANVAS_CFLAGS)
+                        $(GOOCANVAS_CFLAGS) \
+                        $(JSONCPP_CFLAGS)
 
 frame_provider_lib = ../opencv-frame-provider/libopencv-frame-provider.a $(OPENCV_LIBS)
 
@@ -95,4 +96,5 @@ multi_delogo_LDADD = ../filter-generator/libfilter-generator.a \
                      $(PTHREAD_CFLAGS) $(PTHREAD_LIBS) \
                      $(GTKMM_LIBS) \
                      $(GOOCANVAS_LIBS) \
+                     $(JSONCPP_LIBS) \
                      $(WINDOWS_LDFLAGS)

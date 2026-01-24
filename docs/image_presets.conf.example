@@ -1,0 +1,119 @@
+# Multi-delogo Image Presets Configuration
+# =========================================
+#
+# Define image presets here for quick replacement of logos/watermarks.
+# Each preset includes: ID, display name, image file, position & dimensions.
+#
+# FILE LOCATION (searched in order):
+#   1. Same folder as your .mdl project file: image_presets.conf
+#   2. Same folder as your video file: image_presets.conf  
+#   3. Home directory: ~/.multi-delogo-presets.conf
+#
+# =========================================
+# FORMAT:
+# id|display_name|image_path|position_type|p1|p2|p3|p4
+#
+# POSITION TYPES:
+# =========================================
+#
+# 1. ABS (Absolute) - Exact pixel coordinates
+#    ------------------------------------------------
+#    Format: ABS|x|y|width|height
+#    
+#    Parameters:
+#      x      = pixels from left edge
+#      y      = pixels from top edge  
+#      width  = image width in pixels
+#      height = image height in pixels
+#    
+#    Example for 1920x1080 video, logo at top-right:
+#    logo1|Channel Logo|logo.png|ABS|1800|20|100|60
+#
+#
+# 2. MARGIN (Position + Explicit Size) - RECOMMENDED
+#    ------------------------------------------------
+#    Format: MARGIN|left|top|width|height
+#    
+#    Parameters:
+#      left   = pixels from left edge (x position)
+#      top    = pixels from top edge (y position)
+#      width  = explicit image width in pixels
+#      height = explicit image height in pixels
+#    
+#    Example: Logo 20px from right, 10px from top, size 100x50
+#    For 1920px wide video: left = 1920 - 20 - 100 = 1800
+#    logo2|Top Right|logo.png|MARGIN|1800|10|100|50
+#
+#
+# 3. FILL (Margins from all edges) - Auto-calculated size
+#    ------------------------------------------------
+#    Format: FILL|left|top|right|bottom
+#    
+#    Parameters:
+#      left   = pixels from left edge
+#      top    = pixels from top edge
+#      right  = pixels from right edge
+#      bottom = pixels from bottom edge
+#    
+#    The image will be scaled to fill the remaining space.
+#    
+#    Example: Full-width banner, 60px tall at bottom
+#    banner|Bottom Banner|banner.png|FILL|0|0|0|60
+#    
+#    Example: Logo filling top-right corner area
+#    corner|Corner Fill|corner.png|FILL|1700|0|0|900
+#
+# =========================================
+# IMAGES DIRECTORY
+# =========================================
+#
+# Set the base directory for your images.
+# Relative paths in presets will be relative to this directory.
+#
+# Example:
+images_dir=/home/user/my-project/overlay-images
+
+# =========================================
+# PRESET EXAMPLES
+# =========================================
+
+# Top-right logo (for 1920x1080 video)
+# Position: 1800px from left, 10px from top
+# Size: 100x50 pixels
+logo_tr|Top Right Logo|logo.png|MARGIN|1800|10|100|50
+
+# Bottom-left watermark
+# Position: 20px from left, 710px from top (1080 - 20 - 50 = 710 for bottom alignment)
+# Size: 80x50 pixels
+watermark_bl|Bottom Left Watermark|watermark.png|MARGIN|20|1010|80|50
+
+# Center sponsor logo
+# Position: 860px from left (centered for 100px wide logo: (1920-200)/2)
+# Size: 200x100 pixels
+sponsor|Sponsor Logo|sponsor.png|MARGIN|860|490|200|100
+
+# Full-width bottom banner (auto-sized)
+# Fills entire width, 80px from bottom
+banner|Bottom Banner|banner.png|FILL|0|0|0|80
+
+# Absolute position example
+# Exact coordinates: x=1150, y=50, size=120x60
+channel|Channel Logo|channel_logo.png|ABS|1150|50|120|60
+
+# =========================================
+# TIPS
+# =========================================
+#
+# 1. Use PNG images with transparency for best results
+#
+# 2. MARGIN type is most flexible - you specify exact position and size
+#
+# 3. FILL type is good for banners that should stretch
+#
+# 4. Calculate positions for your video resolution:
+#    - For right-aligned: left = video_width - margin_right - image_width
+#    - For bottom-aligned: top = video_height - margin_bottom - image_height
+#
+# 5. Test with one preset first before adding many
+#
+# 6. Keep IDs short and memorable (used in dropdown)

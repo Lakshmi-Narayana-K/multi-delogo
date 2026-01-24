@@ -36,6 +36,28 @@ Filter::~Filter()
 }
 
 
+std::string Filter::ffmpeg_str_with_enable(int frame_width, int frame_height,
+                                           int start_frame, int end_frame) const
+{
+  std::string base_str = ffmpeg_str(frame_width, frame_height);
+  if (base_str.empty()) {
+    return "";
+  }
+
+  // Add enable expression for frame range
+  std::string enable_expr;
+  if (end_frame == NO_END_FRAME) {
+    // From start_frame to end of video
+    enable_expr = ":enable='gte(n," + std::to_string(start_frame) + ")'";
+  } else {
+    // From start_frame to end_frame (inclusive)
+    enable_expr = ":enable='between(n," + std::to_string(start_frame) + "," + std::to_string(end_frame) + ")'";
+  }
+
+  return base_str + enable_expr;
+}
+
+
 std::shared_ptr<NullFilter> NullFilter::load(const std::string& parameters)
 {
   if (parameters != "") {
@@ -248,6 +270,89 @@ std::string DrawboxFilter::ffmpeg_str(int frame_width, int frame_height) const
   std::string buf("drawbox=");
   buf.append(rectangle_ffmpeg_str());
   buf.append(":c=black:t=fill");
+  return buf;
+}
+
+
+ImageOverlayFilter::ImageOverlayFilter(int x, int y, int width, int height, const std::string& image_path)
+  : RectangularFilter(x, y, width, height)
+  , image_path_(image_path)
+{
+}
+
+
+std::shared_ptr<ImageOverlayFilter> ImageOverlayFilter::load(const std::string& parameters)
+{
+  // Format: x;y;width;height;image_path
+  std::vector<std::string> parts;
+  boost::split(parts, parameters, boost::is_any_of(";"));
+  if (parts.size() < 5) {
+    throw InvalidParametersException();
+  }
+
+  try {
+    int x = std::stoi(parts[0]);
+    int y = std::stoi(parts[1]);
+    int width = std::stoi(parts[2]);
+    int height = std::stoi(parts[3]);
+
+    // Image path may contain semicolons, so join remaining parts
+    std::string image_path = parts[4];
+    for (size_t i = 5; i < parts.size(); ++i) {
+      image_path += ";" + parts[i];
+    }
+
+    return std::shared_ptr<ImageOverlayFilter>(new ImageOverlayFilter(x, y, width, height, image_path));
+  } catch (std::invalid_argument& e) {
+    throw InvalidParametersException();
+  }
+}
+
+
+FilterType ImageOverlayFilter::type() const
+{
+  return FilterType::IMAGE_OVERLAY;
+}
+
+
+std::string ImageOverlayFilter::name() const
+{
+  return "overlay";
+}
+
+
+std::string ImageOverlayFilter::image_path() const
+{
+  return image_path_;
+}
+
+
+std::string ImageOverlayFilter::save_str() const
+{
+  std::string buf("overlay;");
+  buf.append(rectangle_save_str());
+  buf.push_back(';');
+  buf.append(image_path_);
+  return buf;
+}
+
+
+std::string ImageOverlayFilter::ffmpeg_str(int frame_width, int frame_height) const
+{
+  // This method is not directly used for overlay filters
+  // The overlay is handled specially in the script generator
+  // Return empty since overlay needs special handling with multiple inputs
+  return "";
+}
+
+
+std::string ImageOverlayFilter::ffmpeg_overlay_str(int input_index) const
+{
+  // Generate the overlay filter string for a specific input
+  // Format: [input_index:v]scale=w:h[scaled]; ... overlay=x:y
+  std::string buf;
+  buf.append("overlay=").append(std::to_string(x())).push_back(':');
+  buf.append(std::to_string(y()));
   return buf;
 }
 

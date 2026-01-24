@@ -49,6 +49,7 @@ namespace fg {
 
     void generate_ffmpeg_script(std::ostream& out) const override;
     int resulting_frames(int original_frames) const override;
+    std::vector<std::string> get_additional_inputs() const override;
 
   protected:
     const FilterList& filter_list_;
@@ -60,6 +61,11 @@ namespace fg {
     mutable int first_filter_;
     mutable std::vector<std::pair<int, maybe_int>> cuts_;
 
+    // Single-pass processing with enable expressions (for delogo/drawbox only)
+    void generate_single_pass_script(std::ostream& out) const;
+
+    // Segmented processing (for CUT/SPEED filters)
+    void generate_segmented_script(std::ostream& out) const;
     int generate_filter_segments(std::ostream& out) const;
     void generate_segment(std::ostream& out, int segment, filter_ptr filter,
                           int start_frame, maybe_int next_start_frame) const;

@@ -24,6 +24,7 @@
 #include <gtkmm.h>
 
 #include "filter-generator/Filters.hpp"
+#include "filter-generator/ImagePreset.hpp"
 
 #include "common/Rectangle.hpp"
 
@@ -149,6 +150,51 @@ namespace mdl {
                        int frame_width, int frame_height);
 
     fg::filter_ptr get_filter() const override;
+  };
+
+
+  class FilterPanelImageOverlay : public FilterPanelRectangular
+  {
+  public:
+    FilterPanelImageOverlay(int start_frame, int max_frame,
+                            int frame_width, int frame_height);
+    FilterPanelImageOverlay(int start_frame, int max_frame,
+                            std::shared_ptr<fg::ImageOverlayFilter> filter,
+                            int frame_width, int frame_height);
+
+    fg::filter_ptr get_filter() const override;
+
+    std::string get_image_path() const;
+    void set_image_path(const std::string& path);
+    
+    // Set the preset manager (shared across all panels)
+    static void set_preset_manager(std::shared_ptr<fg::ImagePresetManager> manager);
+    static std::shared_ptr<fg::ImagePresetManager> get_preset_manager();
+
+  private:
+    FilterPanelImageOverlay(int start_frame, int max_frame,
+                            int x, int y, int width, int height,
+                            const std::string& image_path,
+                            int frame_width, int frame_height);
+
+    // Preset selection
+    Gtk::ComboBoxText cmb_preset_;
+    Gtk::Label lbl_or_;
+    
+    // Manual selection (fallback)
+    Gtk::Entry txt_image_path_;
+    Gtk::Button btn_browse_;
+    
+    std::string image_path_;
+    int frame_width_;
+    int frame_height_;
+    
+    static std::shared_ptr<fg::ImagePresetManager> preset_manager_;
+
+    void on_preset_changed();
+    void on_browse_clicked();
+    void populate_preset_dropdown();
+    void apply_preset(const std::string& preset_id);
   };
 }
 

@@ -49,6 +49,10 @@ WT_OPENCV([OPENCV], [4.0], [opencv_videoio opencv_imgproc opencv_core])
 AC_SUBST([OPENCV_CFLAGS])
 AC_SUBST([OPENCV_LIBS])
 
+PKG_CHECK_MODULES([JSONCPP], [jsoncpp >= 1.7.0])
+AC_SUBST([JSONCPP_CFLAGS])
+AC_SUBST([JSONCPP_LIBS])
+
 AX_BOOST_BASE([1.46], [], [
   AC_MSG_ERROR([boost library could not be found])])
 case $host in

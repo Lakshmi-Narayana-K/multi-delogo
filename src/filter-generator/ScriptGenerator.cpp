@@ -17,6 +17,7 @@
  * along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <string>
+#include <vector>
 #include <clocale>
 
 #include "ScriptGenerator.hpp"
@@ -57,4 +58,11 @@ std::string ScriptGenerator::fps_str()
 bool ScriptGenerator::no_audio()
 {
   return no_audio_;
+}
+
+
+std::vector<std::string> ScriptGenerator::get_additional_inputs() const
+{
+  // Default implementation returns empty list
+  return std::vector<std::string>();
 }

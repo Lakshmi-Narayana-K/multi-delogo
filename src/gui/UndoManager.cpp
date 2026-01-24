@@ -102,6 +102,14 @@ void UndoManager::redo_last_action()
 }
 
 
+void UndoManager::clear()
+{
+  undo_list_.clear();
+  redo_list_.clear();
+  update_buttons();
+}
+
+
 void UndoManager::move_to_undo_list(edit_action_ptr action)
 {
   undo_list_.push_front(action);

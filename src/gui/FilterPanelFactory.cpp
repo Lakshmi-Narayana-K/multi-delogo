@@ -60,6 +60,11 @@ FilterPanel* FilterPanelFactory::create(int start_frame, fg::filter_ptr filter)
                                   std::dynamic_pointer_cast<fg::DrawboxFilter>(filter),
                                   frame_width_, frame_height_);
 
+  case fg::FilterType::IMAGE_OVERLAY:
+    return new FilterPanelImageOverlay(start_frame, max_frame_,
+                                       std::dynamic_pointer_cast<fg::ImageOverlayFilter>(filter),
+                                       frame_width_, frame_height_);
+
   case fg::FilterType::REVIEW:
     return new FilterPanelReview(start_frame, max_frame_);
 
@@ -88,6 +93,10 @@ FilterPanel* FilterPanelFactory::create(int start_frame, fg::FilterType type)
   case fg::FilterType::DRAWBOX:
     return new FilterPanelDrawbox(start_frame, max_frame_,
                                   frame_width_, frame_height_);
+
+  case fg::FilterType::IMAGE_OVERLAY:
+    return new FilterPanelImageOverlay(start_frame, max_frame_,
+                                       frame_width_, frame_height_);
 
   case fg::FilterType::REVIEW:
     return new FilterPanelReview(start_frame, max_frame_);

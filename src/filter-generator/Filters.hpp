@@ -31,11 +31,14 @@ namespace fg {
     NO_OP,
     DELOGO,
     DRAWBOX,
+    IMAGE_OVERLAY,
     CUT,
     SPEED,
     REVIEW,
   };
 
+  // Constant to indicate "no end frame" (filter extends to end of video or next filter)
+  const int NO_END_FRAME = -1;
 
   class Filter
   {
@@ -48,6 +51,10 @@ namespace fg {
     virtual std::string save_str() const = 0;
     virtual std::string ffmpeg_str(int frame_width, int frame_height) const = 0;
     virtual std::string ffmpeg_audio_str() const = 0;
+
+    // Generate ffmpeg filter string with enable expression for frame range
+    virtual std::string ffmpeg_str_with_enable(int frame_width, int frame_height,
+                                                int start_frame, int end_frame) const;
   };
 
 
@@ -123,6 +130,29 @@ namespace fg {
 
     std::string save_str() const override;
     std::string ffmpeg_str(int frame_width, int frame_height) const override;
+  };
+
+
+  class ImageOverlayFilter : public RectangularFilter
+  {
+  public:
+    ImageOverlayFilter(int x, int y, int width, int height, const std::string& image_path);
+
+    static std::shared_ptr<ImageOverlayFilter> load(const std::string& parameters);
+
+    FilterType type() const override;
+    std::string name() const override;
+
+    std::string image_path() const;
+
+    std::string save_str() const override;
+    std::string ffmpeg_str(int frame_width, int frame_height) const override;
+
+    // Special method for overlay - needs input index for the image
+    std::string ffmpeg_overlay_str(int input_index) const;
+
+  private:
+    std::string image_path_;
   };
 
 
