@@ -20,6 +20,7 @@
 #define FG_SCRIPT_GENERATOR_H
 
 #include <string>
+#include <vector>
 
 
 namespace fg {
@@ -35,6 +36,9 @@ namespace fg {
     bool no_audio();
     virtual void generate_ffmpeg_script(std::ostream& out) const = 0;
     virtual int resulting_frames(int original_frames) const = 0;
+
+    // Returns list of additional input files needed (e.g., overlay images)
+    virtual std::vector<std::string> get_additional_inputs() const;
 
   protected:
     double fps_;

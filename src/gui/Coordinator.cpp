@@ -47,6 +47,7 @@ Coordinator::Coordinator(Gtk::Window& parent_window,
   , current_filter_panel_(nullptr)
   , current_filter_(nullptr)
   , scroll_filter_(false) // Will be changed in set_frame_navigator
+  , skip_filter_reselection_(false)
 {
 }
 
@@ -75,6 +76,9 @@ void Coordinator::set_filter_list(FilterList* filter_list)
 
   filter_list_->signal_shift().connect(
     sigc::mem_fun(*this, &Coordinator::on_shift));
+
+  filter_list_->signal_delete_all().connect(
+    sigc::mem_fun(*this, &Coordinator::on_delete_all));
 
   on_filter_type_changed_ = filter_list_->signal_type_changed().connect(
     sigc::mem_fun(*this, &Coordinator::on_filter_type_changed));
@@ -162,12 +166,33 @@ void Coordinator::on_redo()
 
 void Coordinator::on_filter_selected(int start_frame)
 {
+  // Get the filter by its start_frame (unique identifier)
+  auto iter = filter_model_->get_by_start_frame(start_frame);
+  if (iter) {
+    // Update the displayed filter FIRST before changing frame
+    // This ensures we track the correct filter even with overlapping filters
+    change_displayed_filter(iter);
+    select_row(iter);
+  }
+  
+  // Set flag to prevent on_frame_changed from overwriting our selection
+  skip_filter_reselection_ = true;
   frame_navigator_->change_displayed_frame(start_frame);
+  skip_filter_reselection_ = false;
+  
+  current_frame_ = start_frame;
 }
 
 
 void Coordinator::on_frame_changed(int new_frame)
 {
+  current_frame_ = new_frame;
+  
+  // If we're in the middle of a deliberate filter selection, don't override it
+  if (skip_filter_reselection_) {
+    return;
+  }
+  
   auto iter = filter_model_->get_for_frame(new_frame);
 
   if (iter && (*iter)[filter_model_->columns.start_frame] == new_frame) {
@@ -177,8 +202,6 @@ void Coordinator::on_frame_changed(int new_frame)
   }
 
   change_displayed_filter(iter);
-
-  current_frame_ = new_frame;
 }
 
 
@@ -207,14 +230,19 @@ void Coordinator::change_displayed_filter(const FilterListModel::iterator& iter)
   }
 
   int start_frame = (*iter)[filter_model_->columns.start_frame];
+  int end_frame = (*iter)[filter_model_->columns.end_frame];
   fg::filter_ptr filter = (*iter)[filter_model_->columns.filter];
   if (filter == current_filter_) {
     return;
   }
   current_filter_ = filter;
   current_filter_start_frame_ = start_frame;
+  current_filter_end_frame_ = end_frame;
 
   update_displayed_panel(filter->type(), panel_factory_.create(start_frame, filter));
+
+  // Set the end frame on the panel
+  current_filter_panel_->set_end_frame(end_frame);
 
   auto parameters = current_filter_panel_->get_parameters();
   if (boost::variant2::holds_alternative<Rectangle>(parameters)) {
@@ -241,6 +269,8 @@ void Coordinator::update_displayed_panel(fg::FilterType type, FilterPanel* panel
     sigc::mem_fun(*this, &Coordinator::on_panel_parameters_changed));
   on_start_frame_changed_ = current_filter_panel_->signal_start_frame_changed().connect(
     sigc::mem_fun(*this, &Coordinator::on_start_frame_changed));
+  on_end_frame_changed_ = current_filter_panel_->signal_end_frame_changed().connect(
+    sigc::mem_fun(*this, &Coordinator::on_end_frame_changed));
 }
 
 
@@ -361,6 +391,24 @@ void Coordinator::set_start_frame_in_filter_panel(int start_frame)
 }
 
 
+void Coordinator::on_end_frame_changed(int end_frame)
+{
+  // Allow editing end frame for the currently selected filter
+  // (not just when viewing the start frame)
+  if (current_filter_start_frame_ <= 0) {
+    return;
+  }
+
+  auto iter = filter_model_->get_by_start_frame(current_filter_start_frame_);
+  if (!iter) {
+    return;
+  }
+
+  (*iter)[filter_model_->columns.end_frame] = end_frame;
+  current_filter_end_frame_ = end_frame;
+}
+
+
 bool Coordinator::confirm_overwrite_by_start_frame_change(int start_frame)
 {
   if (!filter_model_->get_by_start_frame(start_frame)) {
@@ -402,7 +450,11 @@ void Coordinator::remove_filter(int start_frame)
 
 void Coordinator::insert_filter(int start_frame, fg::filter_ptr filter)
 {
-  filter_model_->insert(start_frame, filter);
+  int end_frame = fg::NO_END_FRAME;
+  if (current_filter_panel_) {
+    end_frame = current_filter_panel_->get_end_frame();
+  }
+  filter_model_->insert(start_frame, end_frame, filter);
   frame_navigator_->change_displayed_frame(start_frame);
 }
 
@@ -448,6 +500,40 @@ void Coordinator::on_shift()
   }
 
   delete window;
+}
+
+
+void Coordinator::on_delete_all()
+{
+  if (filter_model_->children().empty()) {
+    return;
+  }
+
+  // Confirm with user
+  Gtk::MessageDialog dlg(parent_window_,
+                         _("Are you sure you want to delete ALL filters?"),
+                         false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
+  dlg.set_secondary_text(_("This action cannot be undone."));
+
+  if (dlg.run() != Gtk::RESPONSE_YES) {
+    return;
+  }
+
+  // Remove all filters
+  on_filter_selected_.block();
+  filter_model_->clear();
+  on_filter_selected_.block(false);
+
+  // Reset current filter state
+  current_filter_ = nullptr;
+  current_filter_start_frame_ = 0;
+  current_filter_end_frame_ = fg::NO_END_FRAME;
+
+  // Clear undo history since this action cannot be undone
+  undo_manager_.clear();
+
+  // Refresh the display
+  on_frame_changed(current_frame_);
 }
 
 

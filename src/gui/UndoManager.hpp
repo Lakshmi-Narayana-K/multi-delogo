@@ -40,6 +40,7 @@ namespace mdl {
     void execute_action(edit_action_ptr action);
     void undo_last_action();
     void redo_last_action();
+    void clear();
 
   private:
     const static int UNDO_SIZE_ = 50;

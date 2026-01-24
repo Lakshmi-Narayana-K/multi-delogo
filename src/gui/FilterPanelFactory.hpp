@@ -48,11 +48,16 @@ namespace mdl {
     virtual bool creates_filter() const;
     virtual fg::filter_ptr get_filter() const = 0;
     virtual void set_start_frame(int start_frame);
+    virtual void set_end_frame(int end_frame);
+    virtual int get_end_frame() const;
     virtual Parameters get_parameters() const = 0;
     virtual void set_parameters(const Parameters& parameters) = 0;
 
     typedef sigc::signal<void, int> type_signal_start_frame_changed;
     virtual type_signal_start_frame_changed signal_start_frame_changed();
+
+    typedef sigc::signal<void, int> type_signal_end_frame_changed;
+    virtual type_signal_end_frame_changed signal_end_frame_changed();
 
     typedef sigc::signal<void, Parameters> type_signal_parameters_changed;
     virtual type_signal_parameters_changed signal_parameters_changed();
@@ -60,11 +65,19 @@ namespace mdl {
   protected:
     Gtk::Label lbl_start_frame_;
     Gtk::SpinButton txt_start_frame_;
+    Gtk::Label lbl_end_frame_;
+    Gtk::SpinButton txt_end_frame_;
+    Gtk::CheckButton chk_no_end_frame_;
+
+    int max_frame_;
 
     type_signal_start_frame_changed signal_start_frame_changed_;
+    type_signal_end_frame_changed signal_end_frame_changed_;
     type_signal_parameters_changed signal_parameters_changed_;
 
     void on_start_frame_changed();
+    void on_end_frame_changed();
+    void on_no_end_frame_toggled();
     void on_parameters_changed();
   };
 

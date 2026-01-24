@@ -40,7 +40,8 @@ FilterList::FilterList(BaseObjectType* cobject,
 {
   builder->get_widget("filter_view", view_);
   view_->set_model(model_);
-  view_->append_column(_("Start frame"), model_->columns.start_frame);
+  view_->append_column(_("Start"), model_->columns.start_frame);
+  view_->append_column(_("End"), model_->columns.end_frame);
   view_->append_column(_("Filter"), model_->columns.filter_name);
 
   configure_buttons(builder);
@@ -75,6 +76,11 @@ void FilterList::configure_buttons(const Glib::RefPtr<Gtk::Builder>& builder)
   builder->get_widget("btn_shift", btn_shift);
   btn_shift->signal_clicked().connect(
     sigc::mem_fun(signal_shift_, &type_signal_button::emit));
+
+  Gtk::Button* btn_delete_all = nullptr;
+  builder->get_widget("btn_delete_all", btn_delete_all);
+  btn_delete_all->signal_clicked().connect(
+    sigc::mem_fun(signal_delete_all_, &type_signal_button::emit));
 }
 
 
@@ -162,6 +168,12 @@ FilterList::type_signal_button FilterList::signal_remove_filter()
 FilterList::type_signal_button FilterList::signal_shift()
 {
   return signal_shift_;
+}
+
+
+FilterList::type_signal_button FilterList::signal_delete_all()
+{
+  return signal_delete_all_;
 }
 
 

@@ -155,7 +155,15 @@ std::vector<std::string> FFmpegExecutor::get_ffmpeg_cmd_line(const std::string& 
   cmd_line.push_back("ffmpeg");
   cmd_line.push_back("-y");
 
+  // Main video input
   cmd_line.push_back("-i"); cmd_line.push_back(input_file_);
+
+  // Additional inputs (e.g., overlay images)
+  std::vector<std::string> additional_inputs = generator_->get_additional_inputs();
+  for (const auto& input : additional_inputs) {
+    cmd_line.push_back("-i"); cmd_line.push_back(input);
+  }
+
   cmd_line.push_back("-filter_complex_script"); cmd_line.push_back(filter_file);
 
   cmd_line.push_back("-r"); cmd_line.push_back(generator_->fps_str());

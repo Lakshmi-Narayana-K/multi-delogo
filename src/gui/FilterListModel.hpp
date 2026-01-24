@@ -35,6 +35,7 @@ namespace mdl {
   {
   public:
     Gtk::TreeModelColumn<int> start_frame;
+    Gtk::TreeModelColumn<int> end_frame;
     Gtk::TreeModelColumn<fg::filter_ptr> filter;
     Gtk::TreeModelColumn<Glib::ustring> filter_name;
 
@@ -55,7 +56,9 @@ namespace mdl {
     iterator get_by_start_frame(int start_frame);
 
     iterator insert(int start_frame, fg::filter_ptr filter);
+    iterator insert(int start_frame, int end_frame, fg::filter_ptr filter);
     void remove(const iterator& iter);
+    void clear();
 
     std::pair<int, int> shift_frames(int start, int end, int amount);
 
@@ -83,6 +86,7 @@ namespace mdl {
 
     void set_value_impl(const iterator& iter, int column, const Glib::ValueBase& value) override;
     void set_value_start_frame(const iterator& iter, const Glib::ValueBase& value);
+    void set_value_end_frame(const iterator& iter, const Glib::ValueBase& value);
     void set_value_filter(const iterator& iter, const Glib::ValueBase& value);
 
 
@@ -92,6 +96,7 @@ namespace mdl {
 
     int get_position(const iterator& iter) const;
     fg::FilterList::maybe_type get_filter_by_iter(const iterator& iter) const;
+    fg::FilterList::maybe_entry_type get_entry_by_iter(const iterator& iter) const;
     iterator create_iter(int position) const;
     bool check_iter_validity(const const_iterator& iter) const;
   };

@@ -1,0 +1,53 @@
+{
+  "images_dir": "overlay-images",
+  "presets": [
+    {
+      "id": "nxtwave_logo",
+      "name": "NxtWave Logo",
+      "image": "nxtwave_logo_replacement.png",
+      "position": {
+        "type": "margin",
+        "left": 0,
+        "top": 0,
+        "width": 200,
+        "height": 100
+      }
+    },
+    {
+      "id": "nxtwave_small",
+      "name": "NxtWave Logo Small",
+      "image": "extracted_nxtwave_logo.png",
+      "position": {
+        "type": "margin",
+        "left": 0,
+        "top": 0,
+        "width": 100,
+        "height": 50
+      }
+    },
+    {
+        "id": "nxtwave_circle_small",
+        "name": "NxtWave Circle Logo Small",
+        "image": "nxtwave_circle_logo_replacement.png",
+        "position": {
+          "type": "margin",
+          "left": 1839,
+          "top": 19,
+          "width": 116,
+          "height": 57
+        }
+      },
+    {
+      "id": "nxtwave_circle_big",
+      "name": "NxtWave Circle Logo",
+      "image": "nxtwave_circle_logo_replacement.png",
+      "position": {
+        "type": "margin",
+        "left": 1733,
+        "top": 55,
+        "width": 197,
+        "height": 138
+      }
+    }
+  ]
+}

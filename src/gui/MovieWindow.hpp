@@ -72,6 +72,8 @@ namespace mdl {
     void on_scroll_filter_toggled(Gtk::ToggleToolButton* chk);
     void on_set_prev_frame(Gtk::RadioMenuItem* radio, FrameNavigator::PrevFrame setting);
 
+    void load_image_presets();
+
     void on_hide() override;
   };
 }

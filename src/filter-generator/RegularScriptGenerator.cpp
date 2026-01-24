@@ -24,6 +24,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <numeric>
+#include <vector>
 
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
@@ -63,6 +64,151 @@ void RegularScriptGenerator::generate_ffmpeg_script(std::ostream& out) const
     return;
   }
 
+  // Check if we have any CUT or SPEED filters (which require segmented processing)
+  bool has_complex_filters = false;
+  for (const auto& entry : filter_list_) {
+    if (entry.filter->type() == FilterType::CUT ||
+        entry.filter->type() == FilterType::SPEED) {
+      has_complex_filters = true;
+      break;
+    }
+  }
+
+  if (has_complex_filters) {
+    // Fall back to segmented processing for CUT/SPEED filters
+    generate_segmented_script(out);
+  } else {
+    // Use single-pass processing with enable expressions for delogo/drawbox
+    generate_single_pass_script(out);
+  }
+}
+
+
+void RegularScriptGenerator::generate_single_pass_script(std::ostream& out) const
+{
+  // Collect all visual filters (delogo, drawbox) with their frame ranges
+  std::vector<std::string> video_filters;
+
+  // Collect overlay filters separately - they need special handling
+  std::vector<std::pair<int, const FilterEntry*>> overlay_filters;  // input_index, entry
+  int overlay_input_index = 1;  // Start at 1 since 0 is the main video
+
+  for (const auto& entry : filter_list_) {
+    if (entry.filter->type() == FilterType::NO_OP ||
+        entry.filter->type() == FilterType::REVIEW) {
+      continue;
+    }
+
+    if (entry.filter->type() == FilterType::IMAGE_OVERLAY) {
+      // Store for later processing
+      overlay_filters.push_back(std::make_pair(overlay_input_index++, &entry));
+      continue;
+    }
+
+    std::string filter_str = entry.filter->ffmpeg_str_with_enable(
+      frame_width_, frame_height_,
+      entry.start_frame - 1,  // Convert to 0-based frame numbering
+      entry.end_frame == NO_END_FRAME ? NO_END_FRAME : entry.end_frame - 1
+    );
+
+    if (!filter_str.empty()) {
+      video_filters.push_back(filter_str);
+    }
+  }
+
+  // Start with main video input
+  if (video_filters.empty() && overlay_filters.empty()) {
+    // No actual filters, just pass through
+    out << "[0:v]null";
+  } else if (video_filters.empty()) {
+    out << "[0:v]null";
+  } else {
+    // Chain all delogo/drawbox filters together
+    out << "[0:v]" << boost::algorithm::join(video_filters, ",");
+  }
+
+  // Now handle overlay filters - each needs to be chained
+  if (!overlay_filters.empty()) {
+    std::string current_output = "[tmp0]";
+
+    // First, close the delogo/drawbox chain
+    out << current_output << ";\n";
+
+    // Generate scale filters for each overlay image
+    for (size_t i = 0; i < overlay_filters.size(); ++i) {
+      int input_idx = overlay_filters[i].first;
+      const FilterEntry* entry = overlay_filters[i].second;
+      auto overlay = std::dynamic_pointer_cast<ImageOverlayFilter>(entry->filter);
+
+      // Scale the image to the specified dimensions
+      out << "[" << input_idx << ":v]scale=" << overlay->width() << ":" << overlay->height()
+          << "[img" << i << "];\n";
+    }
+
+    // Chain overlay filters
+    std::string prev_output = "[tmp0]";
+    for (size_t i = 0; i < overlay_filters.size(); ++i) {
+      const FilterEntry* entry = overlay_filters[i].second;
+      auto overlay = std::dynamic_pointer_cast<ImageOverlayFilter>(entry->filter);
+
+      int start_frame = entry->start_frame - 1;
+      int end_frame = entry->end_frame == NO_END_FRAME ? NO_END_FRAME : entry->end_frame - 1;
+
+      // Build enable expression
+      std::string enable_expr;
+      if (end_frame == NO_END_FRAME) {
+        enable_expr = ":enable='gte(n," + std::to_string(start_frame) + ")'";
+      } else {
+        enable_expr = ":enable='between(n," + std::to_string(start_frame) + "," + std::to_string(end_frame) + ")'";
+      }
+
+      std::string next_output = (i == overlay_filters.size() - 1) ? "" : "[tmp" + std::to_string(i + 1) + "]";
+
+      out << prev_output << "[img" << i << "]overlay="
+          << overlay->x() << ":" << overlay->y()
+          << enable_expr;
+
+      if (!next_output.empty()) {
+        out << next_output << ";\n";
+        prev_output = next_output;
+      }
+    }
+  }
+
+  // Add scaling if needed
+  if (scale_width_) {
+    out << ",scale=" << *scale_width_ << ":" << *scale_height_;
+  }
+
+  out << "[out_v]";
+
+  // Handle audio
+  if (!no_audio_) {
+    out << ";\n[0:a]anull[out_a]";
+  }
+}
+
+
+std::vector<std::string> RegularScriptGenerator::get_additional_inputs() const
+{
+  std::vector<std::string> inputs;
+
+  for (const auto& entry : filter_list_) {
+    if (entry.filter->type() == FilterType::IMAGE_OVERLAY) {
+      auto overlay = std::dynamic_pointer_cast<ImageOverlayFilter>(entry.filter);
+      if (!overlay->image_path().empty()) {
+        inputs.push_back(overlay->image_path());
+      }
+    }
+  }
+
+  return inputs;
+}
+
+
+void RegularScriptGenerator::generate_segmented_script(std::ostream& out) const
+{
+  // Original segmented processing for CUT/SPEED filters
   int n_segments = generate_filter_segments(out);
   generate_final_concat(out, n_segments);
 }
@@ -73,14 +219,21 @@ int RegularScriptGenerator::generate_filter_segments(std::ostream& out) const
   int segment = 0;
   FilterList::const_iterator i = filter_list_.begin();
   while (i != filter_list_.end()) {
-    auto& current = *i++;
-    filter_ptr filter = current.second;
+    const auto& current = *i++;
+    filter_ptr filter = current.filter;
 
-    int start_frame = current.first - 1;
+    int start_frame = current.start_frame - 1;
     maybe_int next_start_frame;
     if (i != filter_list_.end()) {
-      auto& next = *i;
-      next_start_frame = boost::make_optional(next.first - 1);
+      next_start_frame = boost::make_optional(i->start_frame - 1);
+    }
+
+    // Use end_frame if specified, otherwise use next filter's start
+    maybe_int end_frame;
+    if (current.end_frame != NO_END_FRAME) {
+      end_frame = boost::make_optional(current.end_frame);
+    } else if (next_start_frame) {
+      end_frame = next_start_frame;
     }
 
     if (first_filter_does_not_start_at_first_frame(start_frame)) {
@@ -90,11 +243,11 @@ int RegularScriptGenerator::generate_filter_segments(std::ostream& out) const
     first_filter_ = false;
 
     if (filter->type() == FilterType::CUT) {
-      cuts_.push_back(std::make_pair(start_frame, next_start_frame));
+      cuts_.push_back(std::make_pair(start_frame, end_frame));
       continue;
     }
 
-    generate_segment(out, segment, filter, start_frame, next_start_frame);
+    generate_segment(out, segment, filter, start_frame, end_frame);
 
     ++segment;
   }

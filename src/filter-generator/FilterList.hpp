@@ -21,7 +21,7 @@
 
 #include <memory>
 #include <string>
-#include <map>
+#include <vector>
 #include <istream>
 #include <ostream>
 
@@ -31,13 +31,31 @@
 
 
 namespace fg {
+  // Entry representing a filter with its time range
+  struct FilterEntry {
+    int start_frame;
+    int end_frame;  // NO_END_FRAME (-1) means extends to end of video
+    filter_ptr filter;
+
+    FilterEntry(int start, int end, filter_ptr f)
+      : start_frame(start), end_frame(end), filter(f) {}
+
+    // For backward compatibility: creates entry with no end frame
+    FilterEntry(int start, filter_ptr f)
+      : start_frame(start), end_frame(NO_END_FRAME), filter(f) {}
+  };
+
   class FilterList
   {
   public:
-    typedef std::map<int, filter_ptr>::value_type value_type;
+    // Legacy types for backward compatibility
+    typedef std::pair<int, filter_ptr> value_type;
     typedef boost::optional<value_type> maybe_type;
-    typedef std::map<int, filter_ptr>::size_type size_type;
-    typedef std::map<int, filter_ptr>::const_iterator const_iterator;
+    typedef std::vector<FilterEntry>::size_type size_type;
+    typedef std::vector<FilterEntry>::const_iterator const_iterator;
+
+    // New type for full filter entry access
+    typedef boost::optional<FilterEntry> maybe_entry_type;
 
     FilterList() = default;
 
@@ -45,20 +63,39 @@ namespace fg {
     FilterList (const FilterList&) = delete;
     FilterList& operator=(const FilterList&) = delete;
 
+    // Legacy insert (for backward compatibility) - uses NO_END_FRAME
     void insert(int start_frame, filter_ptr filter);
+
+    // New insert with explicit end frame
+    void insert(int start_frame, int end_frame, filter_ptr filter);
+
     void remove(int start_frame);
+    void remove_by_index(size_type index);
     void change_start_frame(int old_start_frame, int new_start_frame);
+    void change_end_frame(int start_frame, int new_end_frame);
+
+    // Update filter entry by index
+    void update_entry(size_type index, int start_frame, int end_frame, filter_ptr filter);
 
     bool empty() const;
     size_type size() const;
+    void clear();
 
     const_iterator begin() const;
     const_iterator end() const;
 
+    // Legacy accessors (return value_type for compatibility)
     maybe_type get_by_start_frame(int start_frame) const;
     maybe_type get_by_position(size_type position) const;
     int get_position(int start_frame) const;
     maybe_type get_filter_for_frame(int frame) const;
+
+    // New accessors for full entry with end_frame
+    maybe_entry_type get_entry_by_position(size_type position) const;
+    maybe_entry_type get_entry_by_start_frame(int start_frame) const;
+
+    // Get all filters active at a specific frame (for concurrent filters)
+    std::vector<FilterEntry> get_filters_for_frame(int frame) const;
 
     bool has_review_filter() const;
 
@@ -67,9 +104,10 @@ namespace fg {
 
 
   private:
-    std::map<int, filter_ptr> filters_;
+    std::vector<FilterEntry> filters_;
 
     void load_line(const std::string& line);
+    void sort_filters();
   };
 }
 
