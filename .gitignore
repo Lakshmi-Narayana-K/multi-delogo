@@ -109,6 +109,11 @@ test/**/*.trs
 
 # Tag file for editor jumping
 TAGS
+# Video files (keep folders with .gitkeep)
 videos_to_process/*.mp4
 processed_videos/*.mp4
-*.png
+!videos_to_process/.gitkeep
+!processed_videos/.gitkeep
+
+# Temporary frame extracts (but keep reference and overlay images)
+/frame_*.png
