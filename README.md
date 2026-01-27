@@ -38,6 +38,7 @@ multi-delogo/
 ```sh
 git clone https://github.com/Lakshmi-Narayana-K/multi-delogo.git
 cd multi-delogo
+git checkout lakshmi-changes
 ./autogen.sh
 ./configure
 make
