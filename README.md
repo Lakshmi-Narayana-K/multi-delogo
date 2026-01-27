@@ -1,84 +1,141 @@
 # multi-delogo
 
-multi-delogo is an application that helps you remove logos or other watermarks from videos. Even if the position of the logo changes from time to time, multi-delogo allows you to mark all the positions and generate a video without the logos.
-
-There's an automatic logo detection feature that can identify automatically the logos and their positions, especially text logos.
-
-For more details and usage instructions, see [here](docs/en/README.md).
-
-Para informações em português, [clique aqui](README.pt_BR.md).
+Batch video processing tool that automatically detects and replaces logos using template matching.
 
 
-## Installation on Windows
+## Features
 
-Download the latest release from the [releases page](https://github.com/wernerturing/multi-delogo/releases) and unzip the file. Then run the `multi-delogo.exe` file to start the application.
+- Template matching to detect logos at predefined positions
+- Replace detected logos with custom images
+- Process multiple videos in one command
+- Configurable detection rules per video layout
 
 
-## Installation on Linux
+## Project Structure
 
-To compile the software on Linux, you'll need development files for the following libraries:
+```
+multi-delogo/
+├── src/batch-delogo/           # CLI batch processing tool
+├── reference_images/           # Reference images for logo detection
+├── overlay-images/             # Replacement images for logo overlay
+├── videos_to_process/          # Input videos
+├── processed_videos/           # Output videos
+└── video_layouts.json          # Detection and replacement rules
+```
 
-* gtkmm
-* goocanvas
+
+## Installation
+
+### Dependencies
+
 * opencv
+* jsoncpp
 * boost
+* C++11 compiler and make
 
-You'll also need a C++11 compiler and `make`.
-
-Download the latest release from the [releases page](https://github.com/wernerturing/multi-delogo/releases), extract it, and run
+### Build
 
 ```sh
+git clone https://github.com/Lakshmi-Narayana-K/multi-delogo.git
+cd multi-delogo
+./autogen.sh
 ./configure
 make
-make install
 ```
 
-Then run `multi-delogo` to start the application.
+
+## Configuration
+
+### Video Layouts (`video_layouts.json`)
+
+Define detection rules for your videos:
+
+```json
+{
+  "layouts": [
+    {
+      "name": "my_layout",
+      "resolution": { "width": 1920, "height": 1080 },
+      "detections": [
+        {
+          "name": "Top Right Logo",
+          "reference_image": "reference_images/logo.png",
+          "search_region": { "x": 1500, "y": 0, "width": 420, "height": 150 },
+          "match_threshold": 0.6,
+          "replacement": {
+            "image_path": "overlay-images/replacement.png",
+            "position": { "x": 1580, "y": 50 },
+            "size": { "width": 300, "height": 80 },
+            "scale": 1.0
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `reference_image` | Image to search for (the logo to detect) |
+| `search_region` | Area of the frame to search within |
+| `match_threshold` | Detection sensitivity (0.0-1.0, lower = more lenient) |
+| `replacement` | Image and position to overlay when logo is found |
 
 
-## Installation on Mac OS
+## Usage
 
-There's a [Homebrew formula](https://github.com/wernerturing/homebrew-multi-delogo) that installs multi-delogo automatically.
-
-
-## Installation from github
-
-This is very similar to installing on Linux as described above. You'll need some additional dependencies:
-
-* autoconf
-* automake
-* autopoint
-* gettext
-
-Clone the project with
+### Basic Command
 
 ```sh
-git clone https://github.com/wernerturing/multi-delogo.git
+./src/batch-delogo/batch-delogo \
+  --input-folder ./videos_to_process \
+  --output-folder ./processed_videos \
+  --config ./video_layouts.json \
+  --auto-detect
 ```
 
-Enter the `multi-delogo` directory, run `autogen.sh` to generate the `configure` script and the Makefiles, and finally run
-```sh
-./configure
-make
-make install
-```
+### CLI Options
 
-Then run `multi-delogo` to start the application.
+| Option | Description |
+|--------|-------------|
+| `--input-folder` | Folder containing videos to process |
+| `--output-folder` | Folder for processed videos |
+| `--config` | Path to video_layouts.json |
+| `--layout` | Specific layout name (optional) |
+| `--auto-detect` | Enable template matching detection |
+| `--dry-run` | Preview without processing |
 
 
-## Bugs, suggestions, etc.
+## Workflow
 
-You can use [issues](https://github.com/wernerturing/multi-delogo/issues) to report bugs and suggestions.
+1. **Create reference images** - Crop logos from video frames
+   ```sh
+   ffmpeg -i video.mp4 -vf "select=eq(n\,100)" -vframes 1 frame.png
+   # Then crop the logo area and save to reference_images/
+   ```
 
-Pull requests are welcome; please try to follow the style of the code.
+2. **Add replacement images** - Place in `overlay-images/`
 
-You can also send me an email at werner.turing@protonmail.com.
+3. **Configure detection rules** - Edit `video_layouts.json`
+
+4. **Test with dry-run**
+   ```sh
+   ./src/batch-delogo/batch-delogo --input-folder ./videos_to_process \
+     --output-folder ./processed_videos --config ./video_layouts.json \
+     --auto-detect --dry-run
+   ```
+
+5. **Process videos**
+   ```sh
+   ./src/batch-delogo/batch-delogo --input-folder ./videos_to_process \
+     --output-folder ./processed_videos --config ./video_layouts.json \
+     --auto-detect
+   ```
 
 
 ## Copyright
 
 multi-delogo is Copyright (C) 2018-2025 Werner Turing <werner.turing@protonmail.com>
 
-multi-delogo is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-multi-delogo is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the [GNU General Public License](COPYING) for more details.
+Licensed under GNU General Public License v3.0.
