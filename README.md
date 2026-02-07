@@ -26,14 +26,21 @@ multi-delogo/
 
 ## Installation
 
-### Dependencies
+### 1. Install build tools (Debian/Ubuntu)
 
-* opencv
-* jsoncpp
-* boost
-* C++11 compiler and make
+```sh
+sudo apt-get update
+sudo apt-get install -y autoconf automake autopoint gettext libtool pkg-config
+```
 
-### Build
+### 2. Install library dependencies (Debian/Ubuntu)
+
+```sh
+sudo apt-get install -y libglib2.0-dev libgtkmm-3.0-dev libgoocanvas-2.0-dev \
+  libopencv-dev libjsoncpp-dev libboost-all-dev
+```
+
+### 3. Clone and build
 
 ```sh
 git clone https://github.com/Lakshmi-Narayana-K/multi-delogo.git
@@ -79,7 +86,8 @@ Define detection rules for your videos:
 | Field | Description |
 |-------|-------------|
 | `reference_image` | Image to search for (the logo to detect) |
-| `search_region` | Area of the frame to search within |
+| `search_region` | Area of the frame to search within (x, y, width, height in pixels) |
+| `search_quadrant` | Alternative to `search_region`: 1=top-left, 2=top-right, 3=bottom-right, 4=bottom-left (searches that quarter of the frame) |
 | `match_threshold` | Detection sensitivity (0.0-1.0, lower = more lenient) |
 | `replacement` | Image and position to overlay when logo is found |
 

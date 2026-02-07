@@ -43,13 +43,21 @@ namespace fg {
   };
 
   /**
+   * Compute search region for a quadrant of the frame.
+   * Quadrant: 1=top-left, 2=top-right, 3=bottom-right, 4=bottom-left.
+   * If quadrant is not 1-4, returns quadrant 1 (top-left).
+   */
+  SearchRegion search_region_from_quadrant(int frame_width, int frame_height, int quadrant);
+
+  /**
    * Configuration for detecting and replacing a logo using template matching.
    */
   struct DetectionConfig {
     std::string name;              // Display name (e.g., "Top Right Logo")
     std::string reference_image;   // Image to search for (template)
     std::string replacement_image; // Image to overlay when found
-    SearchRegion search_region;    // Where to look in the frame
+    SearchRegion search_region;     // Where to look in the frame (used when search_quadrant is 0)
+    int search_quadrant;           // 0=use search_region, 1-4=use quadrant (1=TL, 2=TR, 3=BR, 4=BL)
     double match_threshold;        // Confidence threshold (0.0-1.0)
     double replacement_scale;      // Scale factor for replacement
     
