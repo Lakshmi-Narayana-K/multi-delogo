@@ -148,7 +148,7 @@ bool get_video_info(const std::string& video_path, int& width, int& height, int&
 }
 
 
-// Template matching to detect logo in a frame
+// Template matching to detect logo in a frame (multi-scale for size tolerance)
 bool detect_logo_in_frame(const cv::Mat& frame, 
                           const cv::Mat& template_img,
                           const fg::SearchRegion& search_region,
@@ -162,28 +162,45 @@ bool detect_logo_in_frame(const cv::Mat& frame,
   int roi_w = std::min(search_region.width, frame.cols - roi_x);
   int roi_h = std::min(search_region.height, frame.rows - roi_y);
   
-  if (roi_w <= template_img.cols || roi_h <= template_img.rows) {
+  if (roi_w <= 0 || roi_h <= 0) {
     return false;
   }
   
   cv::Rect roi(roi_x, roi_y, roi_w, roi_h);
   cv::Mat search_area = frame(roi);
   
-  // Perform template matching
-  cv::Mat result;
-  cv::matchTemplate(search_area, template_img, result, cv::TM_CCOEFF_NORMED);
+  // Try multiple scales so logos from different videos (slightly different size) still match
+  const double scales[] = { 0.9, 0.95, 1.0, 1.05, 1.1 };
+  const int num_scales = sizeof(scales) / sizeof(scales[0]);
+  double best_val = -1.0;
+  cv::Point best_loc(0, 0);
   
-  // Find the best match
-  double min_val, max_val;
-  cv::Point min_loc, max_loc;
-  cv::minMaxLoc(result, &min_val, &max_val, &min_loc, &max_loc);
+  for (int s = 0; s < num_scales; ++s) {
+    int tw = static_cast<int>(template_img.cols * scales[s]);
+    int th = static_cast<int>(template_img.rows * scales[s]);
+    if (tw < 5 || th < 5 || tw > roi_w || th > roi_h) continue;
+    
+    cv::Mat scaled_template;
+    cv::resize(template_img, scaled_template, cv::Size(tw, th), 0, 0, cv::INTER_LINEAR);
+    
+    cv::Mat result;
+    cv::matchTemplate(search_area, scaled_template, result, cv::TM_CCOEFF_NORMED);
+    
+    double min_val, max_val;
+    cv::Point min_loc, max_loc;
+    cv::minMaxLoc(result, &min_val, &max_val, &min_loc, &max_loc);
+    
+    if (max_val > best_val) {
+      best_val = max_val;
+      best_loc = max_loc;
+    }
+  }
   
-  confidence = max_val;
+  confidence = best_val;
   
-  if (max_val >= threshold) {
-    // Found! Calculate position in full frame
-    found_x = roi_x + max_loc.x;
-    found_y = roi_y + max_loc.y;
+  if (best_val >= threshold) {
+    found_x = roi_x + best_loc.x;
+    found_y = roi_y + best_loc.y;
     return true;
   }
   
@@ -207,6 +224,8 @@ std::vector<DetectionResult> detect_logos_in_video(
   }
   
   int frame_count = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_COUNT));
+  int frame_width = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+  int frame_height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
   
   // For each detection config in the layout
   for (const auto& det : layout.detections) {
@@ -221,16 +240,28 @@ std::vector<DetectionResult> detect_logos_in_video(
       continue;
     }
     
+    // Resolve effective search region: quadrant (1-4), explicit search_region, or whole frame
+    fg::SearchRegion effective_region;
+    if (det.search_quadrant >= 1 && det.search_quadrant <= 4) {
+      effective_region = fg::search_region_from_quadrant(frame_width, frame_height, det.search_quadrant);
+      std::cout << "    Search quadrant: " << det.search_quadrant << std::endl;
+    } else if (det.search_region.width > 0 && det.search_region.height > 0) {
+      effective_region = det.search_region;
+    } else {
+      effective_region = fg::SearchRegion(0, 0, frame_width, frame_height);
+      std::cout << "    Search region: whole frame" << std::endl;
+    }
+    std::cout << "    Search region: (" << effective_region.x << "," << effective_region.y
+              << ") " << effective_region.width << "x" << effective_region.height << std::endl;
+    
     std::cout << "    Reference image: " << ref_path << " (" << template_img.cols << "x" << template_img.rows << ")" << std::endl;
-    std::cout << "    Search region: (" << det.search_region.x << "," << det.search_region.y 
-              << ") " << det.search_region.width << "x" << det.search_region.height << std::endl;
     
     // Track detection state
     bool currently_detecting = false;
     int detection_start_frame = -1;
     int last_detected_x = 0, last_detected_y = 0;
     int consecutive_misses = 0;
-    const int MAX_CONSECUTIVE_MISSES = 3;  // Allow some frames without detection
+    const int MAX_CONSECUTIVE_MISSES = 5;  // Allow more frames without detection to reduce jerks
     
     // Sample frames throughout the video
     for (int frame_num = 0; frame_num < frame_count; frame_num += sample_interval) {
@@ -243,7 +274,7 @@ std::vector<DetectionResult> detect_logos_in_video(
       
       int found_x, found_y;
       double confidence;
-      bool found = detect_logo_in_frame(frame, template_img, det.search_region,
+      bool found = detect_logo_in_frame(frame, template_img, effective_region,
                                         det.match_threshold, found_x, found_y, confidence);
       
       if (found) {
@@ -306,6 +337,22 @@ std::vector<DetectionResult> detect_logos_in_video(
       
       std::cout << "    Logo segment: frames " << detection_start_frame << "-" << (frame_count - 1) << " (end of video)" << std::endl;
     }
+  }
+  
+  // Merge nearby segments (same replacement) to avoid overlay dropouts / jerks
+  const int MAX_SEGMENT_GAP_FRAMES = 90;
+  for (size_t i = 0; i < results.size(); ) {
+    if (i + 1 >= results.size()) break;
+    const auto& a = results[i];
+    const auto& b = results[i + 1];
+    int gap = b.start_frame - a.end_frame;
+    if (a.replacement_image == b.replacement_image && a.x == b.x && a.y == b.y
+        && gap <= MAX_SEGMENT_GAP_FRAMES && gap >= 0) {
+      results[i].end_frame = b.end_frame;
+      results.erase(results.begin() + static_cast<std::ptrdiff_t>(i + 1));
+      continue;
+    }
+    ++i;
   }
   
   cap.release();

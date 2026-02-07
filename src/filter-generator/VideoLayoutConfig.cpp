@@ -33,8 +33,8 @@ using namespace fg;
 SearchRegion::SearchRegion()
   : x(0)
   , y(0)
-  , width(400)
-  , height(300)
+  , width(0)
+  , height(0)
 {
 }
 
@@ -48,10 +48,36 @@ SearchRegion::SearchRegion(int x_, int y_, int w, int h)
 }
 
 
+// search_region_from_quadrant: 1=top-left, 2=top-right, 3=bottom-right, 4=bottom-left
+
+namespace fg {
+
+SearchRegion search_region_from_quadrant(int frame_width, int frame_height, int quadrant)
+{
+  int w = frame_width / 2;
+  int h = frame_height / 2;
+  switch (quadrant) {
+    case 1:
+      return SearchRegion(0, 0, w, h);
+    case 2:
+      return SearchRegion(frame_width / 2, 0, w, h);
+    case 3:
+      return SearchRegion(frame_width / 2, frame_height / 2, w, h);
+    case 4:
+      return SearchRegion(0, frame_height / 2, w, h);
+    default:
+      return SearchRegion(0, 0, w, h);
+  }
+}
+
+} // namespace fg
+
+
 // DetectionConfig implementation
 
 DetectionConfig::DetectionConfig()
-  : match_threshold(0.7)
+  : search_quadrant(0)
+  , match_threshold(0.7)
   , replacement_scale(1.0)
 {
 }
@@ -433,6 +459,10 @@ DetectionConfig VideoLayoutManager::parse_detection(const Json::Value& json) con
     if (region.isMember("height")) {
       det.search_region.height = region["height"].asInt();
     }
+  }
+  
+  if (json.isMember("search_quadrant")) {
+    det.search_quadrant = json["search_quadrant"].asInt();
   }
   
   if (json.isMember("match_threshold")) {

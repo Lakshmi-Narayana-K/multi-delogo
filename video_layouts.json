@@ -9,69 +9,67 @@
       "resolution": {"width": 1920, "height": 1080},
       "detections": [
         {
-          "name": "Speaker Full Screen - Top Right Logo",
-          "reference_image": "speaker_full_screen.png",
-          "replacement_image": "nxtwave_circle_logo_replacement.png",
-          "search_region": {
-            "x": 1600,
-            "y": 0,
-            "width": 320,
-            "height": 250
-          },
-          "match_threshold": 0.6,
-          "replacement_scale": 1.0
-        },
-        {
-          "name": "Speaker Top Right Corner - Small Logo",
-          "reference_image": "speaker_top_right.png",
-          "replacement_image": "nxtwave_circle_logo_replacement.png",
-          "search_region": {
-            "x": 1750,
-            "y": 0,
-            "width": 170,
-            "height": 120
-          },
-          "match_threshold": 0.6,
-          "replacement_scale": 1.0
-        },
-        {
           "name": "Logo Bottom Right",
-          "reference_image": "logo-bottom-right.png",
+          "reference_image": "nxt+ib-corner.png",
           "replacement_image": "nxtwave_logo_replacement.png",
-          "search_region": {
-            "x": 1650,
-            "y": 850,
-            "width": 270,
-            "height": 230
-          },
+          "search_quadrant": 3,
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
+        }, 
+        {
+          "name": "Nxtwave With IB in Slide",
+          "reference_image": "nxt+ib_in_slide.png",
+          "replacement_image": "nxtwave_logo_replacement.png",
+          "search_quadrant": 4,
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
+        }, 
+        {
+          "name": "Nxtwave without TM in top left",
+          "reference_image": "nxtwave-top-left.png",
+          "replacement_image": "nxtwave_logo_replacement.png",
+          "search_quadrant": 1,
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
+        }, 
+        {
+          "name": "CCBP IN SLIDE",
+          "reference_image": "ccbp_in_slide.png",
+          "replacement_image": "nxtwave_logo_replacement.png",
+          "search_quadrant": 4,
           "match_threshold": 0.6,
           "replacement_scale": 1.0
         },
         {
-          "name": "Logo in Slide",
-          "reference_image": "slide_full_logo.png",
+          "name": "CCBP IN CENTER",
+          "reference_image": "ccbp_big.png",
           "replacement_image": "nxtwave_logo_replacement.png",
-          "search_region": {
-            "x": 0,
-            "y": 500,
-            "width": 450,
-            "height": 580
-          },
           "match_threshold": 0.6,
           "replacement_scale": 1.0
         },
         {
-          "name": "Small Logo in Slide Corner",
-          "reference_image": "slide_corner_logo.png",
-          "replacement_image": "nxtwave_logo_replacement.png",
-          "search_region": {
-            "x": 340,
-            "y": 1100,
-            "width": 100,
-            "height": 100
-          },
+          "name": "IB HUbs Author In Slide",
+          "reference_image": "ib_hubs_author.png",
+          "replacement_image": "nxtwave_circle_logo_replacement.png",
+          "search_quadrant": 2,
           "match_threshold": 0.6,
-          "replacement_scale": 0.5
+          "replacement_scale": 1.0
+        }, 
+        {
+          "name": "IB HUbs Author In Slide",
+          "reference_image": "ib_hubs_author.png",
+          "replacement_image": "nxtwave_circle_logo_replacement.png",
+          "search_quadrant": 3,
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
+        }, 
+        {
+          "name": "IB HUbs Author In Slide",
+          "reference_image": "ib_hubs_author.png",
+          "replacement_image": "nxtwave_circle_logo_replacement.png",
+          "search_quadrant": 4,
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
         }
       ]
     }
