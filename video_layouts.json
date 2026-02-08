@@ -23,6 +23,14 @@
           "search_quadrant": 4,
           "match_threshold": 0.6,
           "replacement_scale": 1.0
+        },
+        {
+          "name": "Nxtwave With IB Small",
+          "reference_image": "nxt+ib_small.png",
+          "replacement_image": "nxtwave_logo_replacement.png",
+          "search_quadrant": 4,
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
         }, 
         {
           "name": "Nxtwave without TM in top left",
@@ -49,7 +57,7 @@
         },
         {
           "name": "IB HUbs Author In Slide",
-          "reference_image": "ib_hubs_author.png",
+          "reference_image": "ib_hubs_author_v2.png",
           "replacement_image": "nxtwave_circle_logo_replacement.png",
           "search_quadrant": 2,
           "match_threshold": 0.6,
@@ -57,7 +65,7 @@
         }, 
         {
           "name": "IB HUbs Author In Slide",
-          "reference_image": "ib_hubs_author.png",
+          "reference_image": "ib_hubs_author_v2.png",
           "replacement_image": "nxtwave_circle_logo_replacement.png",
           "search_quadrant": 3,
           "match_threshold": 0.6,
@@ -65,9 +73,17 @@
         }, 
         {
           "name": "IB HUbs Author In Slide",
-          "reference_image": "ib_hubs_author.png",
+          "reference_image": "ib_hubs_author_v2.png",
           "replacement_image": "nxtwave_circle_logo_replacement.png",
           "search_quadrant": 4,
+          "match_threshold": 0.6,
+          "replacement_scale": 1.0
+        }, 
+        {
+          "name": "IB HUbs Full Screen",
+          "reference_image": "ibhubs_full_screen.png",
+          "replacement_image": "nxtwave_circle_logo_replacement.png",
+          "search_quadrant": 2,
           "match_threshold": 0.6,
           "replacement_scale": 1.0
         }
