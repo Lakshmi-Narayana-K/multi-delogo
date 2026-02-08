@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
@@ -148,13 +149,14 @@ bool get_video_info(const std::string& video_path, int& width, int& height, int&
 }
 
 
-// Template matching to detect logo in a frame (multi-scale for size tolerance)
+// Template matching to detect logo in a frame (optional multi-scale for size tolerance)
 bool detect_logo_in_frame(const cv::Mat& frame, 
                           const cv::Mat& template_img,
                           const fg::SearchRegion& search_region,
                           double threshold,
                           int& found_x, int& found_y,
-                          double& confidence)
+                          double& confidence,
+                          bool use_multi_scale)
 {
   // Extract the search region from the frame
   int roi_x = std::max(0, search_region.x);
@@ -169,12 +171,12 @@ bool detect_logo_in_frame(const cv::Mat& frame,
   cv::Rect roi(roi_x, roi_y, roi_w, roi_h);
   cv::Mat search_area = frame(roi);
   
-  // Try multiple scales so logos from different videos (slightly different size) still match
-  const double scales[] = { 0.9, 0.95, 1.0, 1.05, 1.1 };
-  const int num_scales = sizeof(scales) / sizeof(scales[0]);
   double best_val = -1.0;
   cv::Point best_loc(0, 0);
   
+  if (use_multi_scale) {
+  const double scales[] = { 0.9, 0.95, 1.0, 1.05, 1.1 };
+  const int num_scales = sizeof(scales) / sizeof(scales[0]);
   for (int s = 0; s < num_scales; ++s) {
     int tw = static_cast<int>(template_img.cols * scales[s]);
     int th = static_cast<int>(template_img.rows * scales[s]);
@@ -195,6 +197,15 @@ bool detect_logo_in_frame(const cv::Mat& frame,
       best_loc = max_loc;
     }
   }
+  } else {
+    cv::Mat result;
+    cv::matchTemplate(search_area, template_img, result, cv::TM_CCOEFF_NORMED);
+    double min_val, max_val;
+    cv::Point min_loc, max_loc;
+    cv::minMaxLoc(result, &min_val, &max_val, &min_loc, &max_loc);
+    best_val = max_val;
+    best_loc = max_loc;
+  }
   
   confidence = best_val;
   
@@ -208,12 +219,28 @@ bool detect_logo_in_frame(const cv::Mat& frame,
 }
 
 
-// Detect logo presence throughout the video by sampling frames
+// Per-detection state for frame-first (single pass) scanning
+struct DetectionState {
+  cv::Mat template_img;
+  fg::SearchRegion effective_region;
+  double match_threshold;
+  std::string replacement_image;
+  double scale;
+  std::string name;
+  bool currently_detecting = false;
+  int detection_start_frame = -1;
+  int last_detected_x = 0, last_detected_y = 0;
+  int consecutive_misses = 0;
+  double last_confidence = 0.0;
+};
+
+// Detect logo presence: one pass over video, all detections per frame (optimized)
 std::vector<DetectionResult> detect_logos_in_video(
     const std::string& video_path,
     fg::VideoLayoutManager& layout_manager,
     const fg::VideoLayout& layout,
-    int sample_interval)
+    int sample_interval,
+    bool use_multi_scale)
 {
   std::vector<DetectionResult> results;
   
@@ -227,115 +254,144 @@ std::vector<DetectionResult> detect_logos_in_video(
   int frame_width = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
   int frame_height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
   
-  // For each detection config in the layout
+  // Build per-detection state (templates + regions); skip failed loads
+  std::vector<DetectionState> states;
   for (const auto& det : layout.detections) {
-    std::cout << "  Detecting: " << det.name << std::endl;
-    
-    // Load reference template image
     std::string ref_path = layout_manager.get_reference_path(det.reference_image);
     cv::Mat template_img = cv::imread(ref_path);
-    
     if (template_img.empty()) {
-      std::cerr << "    Error: Cannot load reference image: " << ref_path << std::endl;
+      std::cerr << "  Error: Cannot load reference image: " << ref_path << std::endl;
       continue;
     }
-    
-    // Resolve effective search region: quadrant (1-4), explicit search_region, or whole frame
     fg::SearchRegion effective_region;
     if (det.search_quadrant >= 1 && det.search_quadrant <= 4) {
       effective_region = fg::search_region_from_quadrant(frame_width, frame_height, det.search_quadrant);
-      std::cout << "    Search quadrant: " << det.search_quadrant << std::endl;
     } else if (det.search_region.width > 0 && det.search_region.height > 0) {
       effective_region = det.search_region;
     } else {
       effective_region = fg::SearchRegion(0, 0, frame_width, frame_height);
-      std::cout << "    Search region: whole frame" << std::endl;
     }
-    std::cout << "    Search region: (" << effective_region.x << "," << effective_region.y
-              << ") " << effective_region.width << "x" << effective_region.height << std::endl;
+    DetectionState ds;
+    ds.template_img = template_img;
+    ds.effective_region = effective_region;
+    ds.match_threshold = det.match_threshold;
+    ds.replacement_image = det.replacement_image;
+    ds.scale = det.replacement_scale;
+    ds.name = det.name;
+    states.push_back(ds);
+    std::cout << "  Detecting: " << det.name
+              << " region (" << effective_region.x << "," << effective_region.y << ") "
+              << effective_region.width << "x" << effective_region.height << std::endl;
+  }
+  
+  const int MAX_CONSECUTIVE_MISSES = 5;
+  const int END_PADDING_FRAMES = 2;       // Extra frames at segment end only (reduces original-logo flash)
+  const int BOUNDARY_REFINE_WINDOW = 15;  // Frames to scan for exact boundaries
+  const double REFINE_THRESHOLD_OFFSET = 0.05;  // Use threshold - this during refinement to catch boundary frames
+  
+  // Single pass: each frame read once, run all detections on it
+  for (int frame_num = 0; frame_num < frame_count; frame_num += sample_interval) {
+    cap.set(cv::CAP_PROP_POS_FRAMES, frame_num);
+    cv::Mat frame;
+    if (!cap.read(frame)) break;
     
-    std::cout << "    Reference image: " << ref_path << " (" << template_img.cols << "x" << template_img.rows << ")" << std::endl;
-    
-    // Track detection state
-    bool currently_detecting = false;
-    int detection_start_frame = -1;
-    int last_detected_x = 0, last_detected_y = 0;
-    int consecutive_misses = 0;
-    const int MAX_CONSECUTIVE_MISSES = 5;  // Allow more frames without detection to reduce jerks
-    
-    // Sample frames throughout the video
-    for (int frame_num = 0; frame_num < frame_count; frame_num += sample_interval) {
-      cap.set(cv::CAP_PROP_POS_FRAMES, frame_num);
-      
-      cv::Mat frame;
-      if (!cap.read(frame)) {
-        break;
-      }
-      
+    for (size_t idx = 0; idx < states.size(); ++idx) {
+      DetectionState& ds = states[idx];
       int found_x, found_y;
       double confidence;
-      bool found = detect_logo_in_frame(frame, template_img, effective_region,
-                                        det.match_threshold, found_x, found_y, confidence);
+      bool found = detect_logo_in_frame(frame, ds.template_img, ds.effective_region,
+                                        ds.match_threshold, found_x, found_y, confidence, use_multi_scale);
       
       if (found) {
-        if (!currently_detecting) {
-          // Start of a new detection segment
-          currently_detecting = true;
-          detection_start_frame = frame_num;
-          std::cout << "    Logo FOUND at frame " << frame_num 
-                    << " pos(" << found_x << "," << found_y << ")"
-                    << " confidence: " << (confidence * 100) << "%" << std::endl;
+        if (!ds.currently_detecting) {
+          ds.currently_detecting = true;
+          ds.detection_start_frame = frame_num;
+          // Refine start: scan backward with slightly lower threshold to find first frame where logo appears
+          double refine_threshold = std::max(0.35, ds.match_threshold - REFINE_THRESHOLD_OFFSET);
+          int refine_start = std::max(0, frame_num - BOUNDARY_REFINE_WINDOW);
+          for (int b = frame_num - 1; b >= refine_start; --b) {
+            cap.set(cv::CAP_PROP_POS_FRAMES, b);
+            cv::Mat bframe;
+            if (!cap.read(bframe)) break;
+            int bx, by;
+            double bconf;
+            if (detect_logo_in_frame(bframe, ds.template_img, ds.effective_region,
+                                     refine_threshold, bx, by, bconf, use_multi_scale))
+              ds.detection_start_frame = b;
+            else
+              break;
+          }
+          cap.set(cv::CAP_PROP_POS_FRAMES, frame_num);
+          std::cout << "  [" << ds.name << "] Logo FOUND at frame " << ds.detection_start_frame
+                    << " pos(" << found_x << "," << found_y << ") " << (confidence * 100) << "%" << std::endl;
         }
-        last_detected_x = found_x;
-        last_detected_y = found_y;
-        consecutive_misses = 0;
+        ds.last_detected_x = found_x;
+        ds.last_detected_y = found_y;
+        ds.last_confidence = confidence;
+        ds.consecutive_misses = 0;
       } else {
-        if (currently_detecting) {
-          consecutive_misses++;
-          if (consecutive_misses >= MAX_CONSECUTIVE_MISSES) {
-            // End of detection segment
-            int end_frame = frame_num - (consecutive_misses * sample_interval);
-            
+        if (ds.currently_detecting) {
+          ds.consecutive_misses++;
+          if (ds.consecutive_misses >= MAX_CONSECUTIVE_MISSES) {
+            int end_frame = frame_num - (ds.consecutive_misses * sample_interval);
+            // Refine end: scan forward with slightly lower threshold to find last frame where logo still appears
+            double refine_threshold_end = std::max(0.35, ds.match_threshold - REFINE_THRESHOLD_OFFSET);
+            int refine_end = std::min(frame_count - 1, end_frame + BOUNDARY_REFINE_WINDOW);
+            for (int f = end_frame + 1; f <= refine_end; ++f) {
+              cap.set(cv::CAP_PROP_POS_FRAMES, f);
+              cv::Mat fframe;
+              if (!cap.read(fframe)) break;
+              int fx, fy;
+              double fconf;
+              if (detect_logo_in_frame(fframe, ds.template_img, ds.effective_region,
+                                      refine_threshold_end, fx, fy, fconf, use_multi_scale)) {
+                end_frame = f;
+                ds.last_detected_x = fx;
+                ds.last_detected_y = fy;
+              } else
+                break;
+            }
+            cap.set(cv::CAP_PROP_POS_FRAMES, frame_num);
+            int start_frame = ds.detection_start_frame;  // No start padding: avoid replacement before logo
+            end_frame = std::min(frame_count - 1, end_frame + END_PADDING_FRAMES);  // Small end padding only
             DetectionResult result;
             result.found = true;
-            result.x = last_detected_x;
-            result.y = last_detected_y;
-            result.width = template_img.cols;
-            result.height = template_img.rows;
-            result.confidence = confidence;
-            result.start_frame = detection_start_frame;
+            result.x = ds.last_detected_x;
+            result.y = ds.last_detected_y;
+            result.width = ds.template_img.cols;
+            result.height = ds.template_img.rows;
+            result.confidence = ds.last_confidence;
+            result.start_frame = start_frame;
             result.end_frame = end_frame;
-            result.replacement_image = det.replacement_image;
-            result.scale = det.replacement_scale;
-            
+            result.replacement_image = ds.replacement_image;
+            result.scale = ds.scale;
             results.push_back(result);
-            
-            std::cout << "    Logo segment: frames " << detection_start_frame << "-" << end_frame << std::endl;
-            
-            currently_detecting = false;
-            consecutive_misses = 0;
+            std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << end_frame << std::endl;
+            ds.currently_detecting = false;
+            ds.consecutive_misses = 0;
           }
         }
       }
     }
-    
-    // Handle case where logo is detected until end of video
-    if (currently_detecting) {
+  }
+  
+  // Close segments that run to end of video
+  for (DetectionState& ds : states) {
+    if (ds.currently_detecting) {
+      int start_frame = ds.detection_start_frame;  // No start padding
       DetectionResult result;
       result.found = true;
-      result.x = last_detected_x;
-      result.y = last_detected_y;
-      result.width = template_img.cols;
-      result.height = template_img.rows;
+      result.x = ds.last_detected_x;
+      result.y = ds.last_detected_y;
+      result.width = ds.template_img.cols;
+      result.height = ds.template_img.rows;
       result.confidence = 0.0;
-      result.start_frame = detection_start_frame;
+      result.start_frame = start_frame;
       result.end_frame = frame_count - 1;
-      result.replacement_image = det.replacement_image;
-      result.scale = det.replacement_scale;
-      
+      result.replacement_image = ds.replacement_image;
+      result.scale = ds.scale;
       results.push_back(result);
-      
-      std::cout << "    Logo segment: frames " << detection_start_frame << "-" << (frame_count - 1) << " (end of video)" << std::endl;
+      std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << (frame_count - 1) << " (end of video)" << std::endl;
     }
   }
   
@@ -367,8 +423,10 @@ bool process_video(const std::string& input_path,
                    bool auto_detect,
                    const std::string& ffmpeg_path,
                    int sample_interval,
-                   bool dry_run)
+                   bool dry_run,
+                   bool use_multi_scale)
 {
+  auto time_start = std::chrono::steady_clock::now();
   std::cout << "\nProcessing: " << input_path << std::endl;
   
   // Get video info
@@ -376,6 +434,7 @@ bool process_video(const std::string& input_path,
   double fps;
   if (!get_video_info(input_path, width, height, frame_count, fps)) {
     std::cerr << "  Error: Cannot open video file" << std::endl;
+    std::cout << "  Total time: " << std::chrono::duration<double>(std::chrono::steady_clock::now() - time_start).count() << "s" << std::endl;
     return false;
   }
   
@@ -388,6 +447,7 @@ bool process_video(const std::string& input_path,
     layout = layout_manager.get_layout_for_resolution(width, height);
     if (!layout) {
       std::cerr << "  Error: No layout found for resolution " << width << "x" << height << std::endl;
+      std::cout << "  Total time: " << std::chrono::duration<double>(std::chrono::steady_clock::now() - time_start).count() << "s" << std::endl;
       return false;
     }
     std::cout << "  Auto-detected layout: " << layout->name << std::endl;
@@ -395,6 +455,7 @@ bool process_video(const std::string& input_path,
     layout = layout_manager.get_layout(layout_id);
     if (!layout) {
       std::cerr << "  Error: Layout '" << layout_id << "' not found" << std::endl;
+      std::cout << "  Total time: " << std::chrono::duration<double>(std::chrono::steady_clock::now() - time_start).count() << "s" << std::endl;
       return false;
     }
     std::cout << "  Using layout: " << layout->name << std::endl;
@@ -405,10 +466,11 @@ bool process_video(const std::string& input_path,
   
   if (layout_manager.is_detection_enabled() && layout->uses_detection()) {
     std::cout << "  Running template matching detection..." << std::endl;
-    detections = detect_logos_in_video(input_path, layout_manager, *layout, sample_interval);
+    detections = detect_logos_in_video(input_path, layout_manager, *layout, sample_interval, use_multi_scale);
     
     if (detections.empty()) {
       std::cout << "  No logos detected in video, skipping" << std::endl;
+      std::cout << "  Total time: " << std::chrono::duration<double>(std::chrono::steady_clock::now() - time_start).count() << "s" << std::endl;
       return true;
     }
     
@@ -431,6 +493,9 @@ bool process_video(const std::string& input_path,
     }
   } else {
     std::cout << "  No detections or replacements configured" << std::endl;
+    auto elapsed = std::chrono::steady_clock::now() - time_start;
+    double sec = std::chrono::duration<double>(elapsed).count();
+    std::cout << "  Total time: " << sec << "s" << std::endl;
     return true;
   }
   
@@ -512,6 +577,8 @@ bool process_video(const std::string& input_path,
   
   if (dry_run) {
     std::cout << "  [DRY RUN] Would execute above command" << std::endl;
+    auto elapsed = std::chrono::steady_clock::now() - time_start;
+    std::cout << "  Total time: " << std::chrono::duration<double>(elapsed).count() << "s" << std::endl;
     return true;
   }
   
@@ -519,6 +586,9 @@ bool process_video(const std::string& input_path,
   std::cout << "\n  Running FFmpeg..." << std::endl;
   int result = system(cmd.str().c_str());
   
+  auto elapsed = std::chrono::steady_clock::now() - time_start;
+  double sec = std::chrono::duration<double>(elapsed).count();
+  std::cout << "  Total time: " << sec << "s" << std::endl;
   if (result == 0) {
     std::cout << "  Output: " << output_path << std::endl;
     return true;
@@ -538,6 +608,7 @@ int main(int argc, char* argv[])
   std::string ffmpeg_path = "ffmpeg";
   bool auto_detect = false;
   bool dry_run = false;
+  bool use_multi_scale = true;
   int sample_interval = 30;  // Check every 30 frames by default
   
   // Parse arguments
@@ -561,6 +632,8 @@ int main(int argc, char* argv[])
       sample_interval = atoi(argv[++i]);
     } else if (arg == "--auto-detect") {
       auto_detect = true;
+    } else if (arg == "--no-multi-scale") {
+      use_multi_scale = false;
     } else if (arg == "--dry-run") {
       dry_run = true;
     } else {
@@ -642,7 +715,7 @@ int main(int argc, char* argv[])
     std::string output_path = get_output_filename(video_path, output_folder);
     
     if (process_video(video_path, output_path, layout_manager,
-                      layout_id, auto_detect, ffmpeg_path, sample_interval, dry_run)) {
+                      layout_id, auto_detect, ffmpeg_path, sample_interval, dry_run, use_multi_scale)) {
       success_count++;
     } else {
       error_count++;

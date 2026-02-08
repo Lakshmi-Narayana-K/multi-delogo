@@ -1,0 +1,689 @@
+# multi-delogo messages in Portuguese (Brazilian)
+#
+# Copyright (C) 2018-2025 Werner Turing <werner.turing@protonmail.com>
+#
+# This file is part of multi-delogo.
+#
+# multi-delogo is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# multi-delogo is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
+# multi-delogo messages in Portuguese (Brazilian)
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: multi-delogo\n"
+"Report-Msgid-Bugs-To: werner.turing@protonmail.com\n"
+"POT-Creation-Date: 2026-01-07 17:29+0530\n"
+"PO-Revision-Date: 2025-12-01 08:20-0300\n"
+"Last-Translator: Werner Turing <werner.turing@protonmail.com>\n"
+"Language-Team: Werner Turing <werner.turing@protonmail.com>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/gui/Coordinator.cpp:371
+msgid "Overwrite filter starting at frame %1?"
+msgstr "Sobrescrever filtro iniciando em %1?"
+
+#: src/gui/Coordinator.cpp:372 src/gui/EncodeWindow.cpp:276
+msgid "_Overwrite"
+msgstr "_Sobrescrever"
+
+#: src/gui/Coordinator.cpp:372
+msgid "_Don't overwrite"
+msgstr "_Não sobrescrever"
+
+#: src/gui/EditAction.cpp:53
+msgid "Add filter at %1"
+msgstr "Adicionar filtro em %1"
+
+#: src/gui/EditAction.cpp:79
+msgid "Update filter at %1"
+msgstr "Atualizar filtro em %1"
+
+#: src/gui/EditAction.cpp:91
+msgid "Change filter type at %1"
+msgstr "Alterar tipo do filtro em %1"
+
+#: src/gui/EditAction.cpp:116
+msgid "Remove filter at %1"
+msgstr "Remover filtro em %1"
+
+#: src/gui/EditAction.cpp:145
+msgid "Change start frame from %1 to %2"
+msgstr "Alterar quadro inicial de %1 para %2"
+
+#: src/gui/EditAction.cpp:173
+msgid "Shift starting frames by %1 from %2 to %3"
+msgstr "Alterar quadros iniciais em %1 de %2 para %3"
+
+#: src/gui/EncodeWindow.cpp:154
+msgid "Select output file"
+msgstr "Selecione o arquivo de destino"
+
+#: src/gui/EncodeWindow.cpp:155 src/gui/EncodeWindow.cpp:276
+#: src/gui/FindLogosWindow.cpp:206 src/gui/MultiDelogoApp.cpp:307
+msgid "_Cancel"
+msgstr "_Cancelar"
+
+#: src/gui/EncodeWindow.cpp:156
+msgid "_Save"
+msgstr "_Salvar"
+
+#: src/gui/EncodeWindow.cpp:201
+msgid "Encoding in progress"
+msgstr "Conversão sendo executada"
+
+#: src/gui/EncodeWindow.cpp:210
+msgid "Error generating filter script for FFmpeg: %1"
+msgstr "Erro ao gerar script de filtros para o FFmpeg: %1"
+
+#: src/gui/EncodeWindow.cpp:214
+msgid "Could not execute FFmpeg: %1"
+msgstr "Não foi possível executar o FFmpeg: %1"
+
+#: src/gui/EncodeWindow.cpp:235
+msgid "Filter script generated"
+msgstr "Script com filtros gerado"
+
+#: src/gui/EncodeWindow.cpp:238 src/gui/MultiDelogoApp.cpp:127
+#: src/gui/MultiDelogoApp.cpp:243
+msgid "Could not open file %1: %2"
+msgstr "Não foi possível abrir o arquivo %1: %2"
+
+#: src/gui/EncodeWindow.cpp:256
+msgid "FILTER_FILE"
+msgstr "ARQUIVO_DE_FILTROS"
+
+#: src/gui/EncodeWindow.cpp:260
+msgid "FFmpeg command line"
+msgstr "Linha de comando FFmpeg"
+
+#: src/gui/EncodeWindow.cpp:268
+msgid "Please select the output file"
+msgstr "Por favor selecione o arquivo de destino"
+
+#: src/gui/EncodeWindow.cpp:275
+msgid "File %1 already exists. Overwrite?"
+msgstr "Arquivo %1 já existe. Sobrescrever?"
+
+#: src/gui/EncodeWindow.cpp:310
+msgid "Encoding finished successfully"
+msgstr "Conversão terminou com sucesso"
+
+#: src/gui/EncodeWindow.cpp:312
+msgid "Encoding failed: %1"
+msgstr "Conversão falhou: %1"
+
+#: src/gui/EncodeWindow.cpp:347
+msgid ""
+"Encoding is in progress. If it is cancelled now, it'll be necessary to "
+"restart encoding from the beginning. Really cancel?"
+msgstr ""
+"A conversão está sendo executada. Se for cancelada agora, será necesário "
+"reiniciar a conversão do começo. Realmente deseja cancelar?"
+
+#: src/gui/EncodeWindow.cpp:348
+msgid "C_ancel encoding"
+msgstr "C_ancelar conversão"
+
+#: src/gui/EncodeWindow.cpp:348 src/gui/FindLogosWindow.cpp:234
+msgid "_Continue"
+msgstr "_Continuar"
+
+#: src/gui/EncodeWindow.ui:54
+msgid "Encode video"
+msgstr "Converter vídeo"
+
+#: src/gui/EncodeWindow.ui:71
+msgid "_Output file:"
+msgstr "_Arquivo de destino:"
+
+#: src/gui/EncodeWindow.ui:94
+msgid "_Select"
+msgstr "_Selecionar"
+
+#: src/gui/EncodeWindow.ui:124
+msgid "Video format:"
+msgstr "Formato do vídeo:"
+
+#: src/gui/EncodeWindow.ui:138
+msgid "Most compatible video format. If in doubt, use this format"
+msgstr ""
+"Formato de vídeo mais compatível. Se estiver em dúvida, use este formato"
+
+#: src/gui/EncodeWindow.ui:155
+msgid ""
+"A newer format that produces smaller video files. May not work on all players"
+msgstr ""
+"Um formato mais novo que gera arquivos menores. Pode não ser suportado por "
+"todos os players"
+
+#: src/gui/EncodeWindow.ui:184
+msgid "_Quality:"
+msgstr "_Qualidade:"
+
+#: src/gui/EncodeWindow.ui:198
+msgid ""
+"CRF value to use for encoding. Lower values generally lead to higher "
+"quality, but bigger files. If in doubt, accept the default"
+msgstr ""
+"Valor CRF a ser usado na conversão do vídeo. Valores mais baixos em geral "
+"produzem melhor qualidade, mas arquivos maiores. Se estiver em dúvida, use o "
+"padrão"
+
+#: src/gui/EncodeWindow.ui:212
+msgid "_Preset:"
+msgstr "_Predefinição:"
+
+#: src/gui/EncodeWindow.ui:257
+msgid "Sc_ale:"
+msgstr "_Redimensionar:"
+
+#: src/gui/EncodeWindow.ui:321
+msgid "_No audio"
+msgstr "_Sem áudio"
+
+#: src/gui/EncodeWindow.ui:325
+msgid "Remove audio from the encoded video"
+msgstr "Remover áudio do vídeo convertido"
+
+#: src/gui/EncodeWindow.ui:344
+msgid "_Generate filter script"
+msgstr "_Gerar script com filtros"
+
+#: src/gui/EncodeWindow.ui:348
+msgid ""
+"Generates a FFmpeg filter script file that can be used to encode the video. "
+"Use this option if you want to run FFmpeg manually with custom encoding "
+"options"
+msgstr ""
+"Gerar um arquivo script de filtros do FFmpeg que pode ser usado para "
+"converter o vídeo. Selecione esta opção se você quiser executar o FFmpeg "
+"manualmente com opções de conversão personalizadas"
+
+#: src/gui/EncodeWindow.ui:359 src/gui/MovieWindow.ui:255
+msgid "_Encode"
+msgstr "_Converter"
+
+#: src/gui/EncodeWindow.ui:373
+msgid "Show _command line"
+msgstr "Exibir linha de _comando"
+
+#: src/gui/EncodeWindow.ui:377
+msgid "Show the FFmpeg command line used to encode the video"
+msgstr "Exibir a linha de comando do FFmpeg usada para converter o vídeo"
+
+#: src/gui/EncodeWindow.ui:427
+msgid "View _log"
+msgstr "Ver _log"
+
+#: src/gui/ETRProgressBar.cpp:76
+#, no-c-format
+msgid "100% done"
+msgstr "100% pronto"
+
+#: src/gui/ETRProgressBar.cpp:82
+msgid "%1%% done, %2"
+msgstr "%1%% pronto, %2"
+
+#: src/gui/ETRProgressBar.cpp:91
+msgid "about %1 second left"
+msgid_plural "about %1 seconds left"
+msgstr[0] "cerca de %1 segundo restantes"
+msgstr[1] "cerca de %1 segundos restantes"
+
+#: src/gui/ETRProgressBar.cpp:100
+msgid "about %1 minute left"
+msgid_plural "about %1 minutes left"
+msgstr[0] "cerca de %1 minuto restante"
+msgstr[1] "cerca de %1 minutos restantes"
+
+#: src/gui/ETRProgressBar.cpp:108
+msgid "about %1 hour left"
+msgid_plural "about %1 hours left"
+msgstr[0] "cerca de %1 hora restante"
+msgstr[1] "cerca de %1 horas restantes"
+
+#: src/gui/FilterList.cpp:43
+msgid "Start frame"
+msgstr "Quadro inicial"
+
+#: src/gui/FilterList.cpp:44
+msgid "Filter"
+msgstr "Filtro"
+
+#: src/gui/FilterPanels.cpp:35 src/gui/ShiftFramesWindow.ui:90
+msgid "_Start frame:"
+msgstr "_Quadro inicial:"
+
+#: src/gui/FilterPanels.cpp:186
+msgid "_speed:"
+msgstr "_velocidade:"
+
+#: src/gui/FilterPanels.cpp:243
+msgid "_x:"
+msgstr "_x:"
+
+#: src/gui/FilterPanels.cpp:244
+msgid "_y:"
+msgstr "_y:"
+
+#: src/gui/FilterPanels.cpp:245
+msgid "_width:"
+msgstr "_largura:"
+
+#: src/gui/FilterPanels.cpp:246
+msgid "_height:"
+msgstr "_altura:"
+
+#: src/gui/FindLogosWindow.cpp:154
+msgid ""
+"Invalid logo duration: maximum duration must be greater than or than the "
+"minimum duration"
+msgstr ""
+"Duração do logo inválida: a duração máxima deve ser maior ou igual que a "
+"duração mínima"
+
+#: src/gui/FindLogosWindow.cpp:205
+msgid ""
+"There are already filters in the range specified for the search. Do you want "
+"really want to continue?"
+msgstr ""
+"Já existem filtros no intervalo para pesquisa especificado. Você realmente "
+"deseja continuar?"
+
+#: src/gui/FindLogosWindow.cpp:206
+msgid "_Find logos"
+msgstr "_Procurar logos"
+
+#: src/gui/FindLogosWindow.cpp:233
+msgid "Do you really want to stop finding logos?"
+msgstr "Você realmente deseja parar a busca por logos?"
+
+#: src/gui/FindLogosWindow.cpp:234
+msgid "_Stop"
+msgstr "_Parar"
+
+#: src/gui/FindLogosWindow.cpp:255
+msgid "Process finished unexpectedly: %1"
+msgstr "Processo terminou inesperadamente: %1"
+
+#: src/gui/FindLogosWindow.ui:30 src/gui/MovieWindow.ui:242
+msgid "Find logos"
+msgstr "Procurar logos"
+
+#: src/gui/FindLogosWindow.ui:51
+msgid "Search interval:"
+msgstr "Intervalo de busca:"
+
+#: src/gui/FindLogosWindow.ui:63
+msgid "_start:"
+msgstr "iní_cio:"
+
+#: src/gui/FindLogosWindow.ui:76
+msgid "The frame at which to start to search"
+msgstr "Quando onde deve iniciar a busca por logos"
+
+#: src/gui/FindLogosWindow.ui:88
+msgid "_end:"
+msgstr "_fim:"
+
+#: src/gui/FindLogosWindow.ui:101
+msgid "The frame at which to end to search"
+msgstr "Quando onde deve terminar a busca por logos"
+
+#: src/gui/FindLogosWindow.ui:113
+msgid "Logo duration:"
+msgstr "Duração do logo:"
+
+#: src/gui/FindLogosWindow.ui:125
+msgid "_between:"
+msgstr "e_ntre:"
+
+#: src/gui/FindLogosWindow.ui:138
+msgid "Minimum number of frames that the logos last"
+msgstr "Número mínimo de quadros que os logos duram"
+
+#: src/gui/FindLogosWindow.ui:150
+msgid "an_d:"
+msgstr "_e:"
+
+#: src/gui/FindLogosWindow.ui:163
+msgid "Maximum number of frames that the logos last"
+msgstr "Número máximo de quadros que os logos duram"
+
+#: src/gui/FindLogosWindow.ui:175
+msgid "Logo width:"
+msgstr "Largura do logo:"
+
+#: src/gui/FindLogosWindow.ui:187
+msgid "_min:"
+msgstr "_mín:"
+
+#: src/gui/FindLogosWindow.ui:200
+msgid "Minimum width of the possible logos to consider"
+msgstr "Largura mínima dos logos a considerar"
+
+#: src/gui/FindLogosWindow.ui:212
+msgid "ma_x:"
+msgstr "má_x:"
+
+#: src/gui/FindLogosWindow.ui:225
+msgid "Maximum width of the possible logos to consider"
+msgstr "Largura máxima dos logos a considerar"
+
+#: src/gui/FindLogosWindow.ui:237
+msgid "Logo height:"
+msgstr "Altura do logo:"
+
+#: src/gui/FindLogosWindow.ui:249
+msgid "m_in:"
+msgstr "m_ín:"
+
+#: src/gui/FindLogosWindow.ui:262
+msgid "Minimum height of the possible logos to consider"
+msgstr "Altura mínima dos logos a considerar"
+
+#: src/gui/FindLogosWindow.ui:274
+msgid "m_ax:"
+msgstr "m_áx:"
+
+#: src/gui/FindLogosWindow.ui:287
+msgid "Maximum height of the possible logos to consider"
+msgstr "Altura máxima dos logos a considerar"
+
+#: src/gui/FindLogosWindow.ui:322
+msgid "Find _logos"
+msgstr "Procurar _logos"
+
+#: src/gui/FindLogosWindow.ui:336 src/gui/ShiftFramesWindow.ui:57
+msgid "_Close"
+msgstr "Fecha_r"
+
+#: src/gui/FrameNavigator.cpp:189
+msgid "Could not get frame"
+msgstr "Não foi possível obter o frame"
+
+#: src/gui/InitialWindow.ui:40
+msgid "multi-delogo"
+msgstr "multi-delogo"
+
+#: src/gui/InitialWindow.ui:52
+msgid "What would you like to do?"
+msgstr "O que deseja fazer?"
+
+#: src/gui/InitialWindow.ui:62 src/gui/MultiDelogoApp.cpp:163
+msgid "Start a _new project"
+msgstr "Começar um _novo projeto"
+
+#: src/gui/InitialWindow.ui:79
+msgid "_Open an existing project"
+msgstr "_Abrir um projeto existente"
+
+#: src/gui/LogWindow.ui:29
+msgid "FFmpeg log"
+msgstr "Log do FFmpeg"
+
+#: src/gui/MovieWindow.cpp:212
+msgid ""
+"There are no filters. Please define at least one filter before encoding."
+msgstr ""
+"Não há filtros. Por favor defina pelo menos um filtro antes da conversão."
+
+#: src/gui/MovieWindow.cpp:218
+msgid ""
+"Encoding cannot be done when there are 'review' filters. Please change them "
+"to some other filter (such as 'none'), or remove them."
+msgstr ""
+"Não é possível fazer a conversão enquanto há filtros 'review'. Por favor "
+"altere-os para um outro filtro (como 'none'), ou remova-os."
+
+#: src/gui/MovieWindow.ui:30
+msgid "Jump to next filter (v)"
+msgstr "Ir para o próximo filtro (v)"
+
+#: src/gui/MovieWindow.ui:36
+msgid "Jump to previous filter (c)"
+msgstr "Ir para o filtro anterior (c)"
+
+#: src/gui/MovieWindow.ui:43
+msgid "Remove the selected filter"
+msgstr "Remover o filtro selecionado"
+
+#: src/gui/MovieWindow.ui:83
+msgid "Create a new project"
+msgstr "Criar um novo projeto"
+
+#: src/gui/MovieWindow.ui:84
+msgid "New"
+msgstr "Novo"
+
+#: src/gui/MovieWindow.ui:96
+msgid "Open an existing project"
+msgstr "Abrir um projeto existente"
+
+#: src/gui/MovieWindow.ui:97
+msgid "Open"
+msgstr "Abrir"
+
+#: src/gui/MovieWindow.ui:109
+msgid "Save current project"
+msgstr "Salvar projeto atual"
+
+#: src/gui/MovieWindow.ui:110
+msgid "Save"
+msgstr "Salvar"
+
+#: src/gui/MovieWindow.ui:132
+msgid "Undo"
+msgstr "Desfazer"
+
+#: src/gui/MovieWindow.ui:144
+msgid "Redo"
+msgstr "Refazer"
+
+#: src/gui/MovieWindow.ui:166
+msgid ""
+"Check to make the rectangle where the filter is applied to be displayed "
+"(scrolling the frame image if necessary) when moving between filters"
+msgstr ""
+"Marque para fazer com que o retângulo onde o filtro é aplicado seja exibido "
+"(rolando a imagem do quadro se necessário) ao mover entre filtros"
+
+#: src/gui/MovieWindow.ui:167
+msgid "_Scroll to filter"
+msgstr "_Rolar para filtro"
+
+#: src/gui/MovieWindow.ui:180
+msgid "_Previous frame"
+msgstr "_Quadro anterior"
+
+#: src/gui/MovieWindow.ui:190
+msgid "Shows only the current frame"
+msgstr "Exibe apenas o quadro atual"
+
+#: src/gui/MovieWindow.ui:191
+msgid "_Don't display"
+msgstr "_Não exibir"
+
+#: src/gui/MovieWindow.ui:201
+msgid "Displays the whole previous frame"
+msgstr "Exibe quadro anterior inteiro"
+
+#: src/gui/MovieWindow.ui:202
+msgid "_Fit to window"
+msgstr "Ajustar à _janela"
+
+#: src/gui/MovieWindow.ui:212
+msgid ""
+"Displays the previous frame using the same zoom and showing the same region "
+"as the current frame"
+msgstr ""
+"Exibe o quadro anterior com o mesmo nível de zoom e exibindo a mesma região "
+"do quadro atual"
+
+#: src/gui/MovieWindow.ui:213
+msgid "_Same view"
+msgstr "_Mesma visão"
+
+#: src/gui/MovieWindow.ui:241
+msgid "Try to automatically find logos in the video"
+msgstr "Tentar procurar logos automaticamente no vídeo"
+
+#: src/gui/MovieWindow.ui:254
+msgid "Encode current project to a video with the filters applied"
+msgstr "Converter o projeto atual para um vídeo com os filtros aplicados"
+
+#: src/gui/MovieWindow.ui:355
+msgid "_Shift starting frames..."
+msgstr "Alterar quadros _iniciais..."
+
+#: src/gui/MovieWindow.ui:385
+msgid "Filter:"
+msgstr "Filtro:"
+
+#: src/gui/MovieWindow.ui:559
+msgid "Previous frame:"
+msgstr "Quadro anterior:"
+
+#: src/gui/MovieWindow.ui:592
+msgid "Jump back the number of frames specified in \"jump size\" (a)"
+msgstr ""
+"Saltar para frente o número de quadros especificado em \"tamanho do "
+"salto\" (a)"
+
+#: src/gui/MovieWindow.ui:606
+msgid "Move back one frame (s)"
+msgstr "Voltar um quadro (s)"
+
+#: src/gui/MovieWindow.ui:618
+msgid "Current frame number"
+msgstr "Número do quadro atual"
+
+#: src/gui/MovieWindow.ui:645
+msgid "Move forward one frame (d)"
+msgstr "Avançar um quadro (d)"
+
+#: src/gui/MovieWindow.ui:659
+msgid "Jump forward the number of frames specified in \"jump size\" (f)"
+msgstr ""
+"Saltar para trás o número de quadros especificado em \"tamanho do salto\" (f)"
+
+#: src/gui/MovieWindow.ui:672
+msgid "_Jump size:"
+msgstr "_Tamanho do salto:"
+
+#: src/gui/MovieWindow.ui:686
+msgid "Number of frames to jump when using << and >> buttons"
+msgstr "Número de quadros a saltar quando os botões << e >> são utilizados"
+
+#: src/gui/MovieWindow.ui:750
+msgid "Fit the image to the window"
+msgstr "Ajustar tamanho da imagem ao da janela"
+
+#: src/gui/MovieWindow.ui:764
+msgid "Make image smaller"
+msgstr "Diminuir tamanho da imagem"
+
+#: src/gui/MovieWindow.ui:791
+msgid "Make image larger"
+msgstr "Aumentar tamanho da imagem"
+
+#: src/gui/MovieWindow.ui:806
+msgid "Zoom to original size"
+msgstr "Exibir a imagem no tamanho original"
+
+#: src/gui/MultiDelogoApp.cpp:53
+msgid "Outputs application version and exits"
+msgstr "Exibe informação de versão e termina a aplicação"
+
+#: src/gui/MultiDelogoApp.cpp:54
+msgid "Outputs debugging information"
+msgstr "Exibe informações de depuração"
+
+#: src/gui/MultiDelogoApp.cpp:148
+msgid "Invalid data in file %1"
+msgstr "Dados inválidos no arquivo %1"
+
+#: src/gui/MultiDelogoApp.cpp:162
+msgid ""
+"There is already a project corresponding to movie %1. If you start a new "
+"project all your previous work will be lost."
+msgstr ""
+"Já existe um projeto correspondente ao vídeo %1. Se você iniciar um novo "
+"projeto todo o trabalho anterior será perdido."
+
+#: src/gui/MultiDelogoApp.cpp:164
+msgid "_Continue existing project"
+msgstr "_Continuar projeto existente"
+
+#: src/gui/MultiDelogoApp.cpp:187
+msgid "File %1 not recognized as video or multi-delogo data"
+msgstr "Arquivo %1 não reconhecido como vídeo ou arquivo do multi-delogo"
+
+#: src/gui/MultiDelogoApp.cpp:202
+msgid ""
+"Movie file %1 in project could not be opened. Please select the movie file."
+msgstr ""
+"Arquivo de vídeo %1 no projeto não pôde ser aberto. Por falor selecione o "
+"vídeo."
+
+#: src/gui/MultiDelogoApp.cpp:274
+msgid "Movies"
+msgstr "Vídeos"
+
+#: src/gui/MultiDelogoApp.cpp:286
+msgid "Select video file"
+msgstr "Selecione arquivo de vídeo"
+
+#: src/gui/MultiDelogoApp.cpp:293
+msgid "Project files"
+msgstr "Projetos"
+
+#: src/gui/MultiDelogoApp.cpp:296
+msgid "Open project"
+msgstr "Abra um projeto"
+
+#: src/gui/MultiDelogoApp.cpp:308
+msgid "_Open"
+msgstr "_Abrir"
+
+#: src/gui/MultiDelogoApp.cpp:311
+msgid "All files"
+msgstr "Todos os arquivos"
+
+#: src/gui/ShiftFramesWindow.ui:29
+msgid "Shift starting frames"
+msgstr "Alterar quadros iniciais"
+
+#: src/gui/ShiftFramesWindow.ui:43
+msgid "S_hift"
+msgstr "_Ajustar"
+
+#: src/gui/ShiftFramesWindow.ui:116
+msgid "_End frame:"
+msgstr "Quadro _final:"
+
+#: src/gui/ShiftFramesWindow.ui:142
+msgid "_Amount:"
+msgstr "Q_uantidade:"
+
+#: src/gui/UndoManager.cpp:115
+msgid "Undo \"%1\""
+msgstr "Desfazer \"%1\""
+
+#: src/gui/UndoManager.cpp:116
+msgid "Redo \"%1\""
+msgstr "Refazer \"%1\""
