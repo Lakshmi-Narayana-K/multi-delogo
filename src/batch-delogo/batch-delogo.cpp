@@ -285,9 +285,11 @@ std::vector<DetectionResult> detect_logos_in_video(
   }
   
   const int MAX_CONSECUTIVE_MISSES = 5;
-  const int END_PADDING_FRAMES = 2;       // Extra frames at segment end only (reduces original-logo flash)
-  const int BOUNDARY_REFINE_WINDOW = 15;  // Frames to scan for exact boundaries
+  const int START_PADDING_FRAMES = 1;     // Start overlay earlier so new logo is on screen before old one appears
+  const int END_PADDING_FRAMES = 1;       // Extra frames at segment end only (reduces original-logo flash)
+  const int BOUNDARY_REFINE_WINDOW = 30;  // Frames to scan for exact boundaries (wider to catch earlier logo appearance)
   const double REFINE_THRESHOLD_OFFSET = 0.05;  // Use threshold - this during refinement to catch boundary frames
+  const double REFINE_THRESHOLD_OFFSET_START = 0.08;  // More aggressive for start refinement (fade-in frames)
   
   // Single pass: each frame read once, run all detections on it
   for (int frame_num = 0; frame_num < frame_count; frame_num += sample_interval) {
@@ -307,7 +309,7 @@ std::vector<DetectionResult> detect_logos_in_video(
           ds.currently_detecting = true;
           ds.detection_start_frame = frame_num;
           // Refine start: scan backward with slightly lower threshold to find first frame where logo appears
-          double refine_threshold = std::max(0.35, ds.match_threshold - REFINE_THRESHOLD_OFFSET);
+          double refine_threshold = std::max(0.35, ds.match_threshold - REFINE_THRESHOLD_OFFSET_START);
           int refine_start = std::max(0, frame_num - BOUNDARY_REFINE_WINDOW);
           for (int b = frame_num - 1; b >= refine_start; --b) {
             cap.set(cv::CAP_PROP_POS_FRAMES, b);
@@ -352,7 +354,7 @@ std::vector<DetectionResult> detect_logos_in_video(
                 break;
             }
             cap.set(cv::CAP_PROP_POS_FRAMES, frame_num);
-            int start_frame = ds.detection_start_frame;  // No start padding: avoid replacement before logo
+            int start_frame = std::max(0, ds.detection_start_frame - START_PADDING_FRAMES);
             end_frame = std::min(frame_count - 1, end_frame + END_PADDING_FRAMES);  // Small end padding only
             DetectionResult result;
             result.found = true;
@@ -378,7 +380,7 @@ std::vector<DetectionResult> detect_logos_in_video(
   // Close segments that run to end of video
   for (DetectionState& ds : states) {
     if (ds.currently_detecting) {
-      int start_frame = ds.detection_start_frame;  // No start padding
+      int start_frame = std::max(0, ds.detection_start_frame - START_PADDING_FRAMES);
       DetectionResult result;
       result.found = true;
       result.x = ds.last_detected_x;
