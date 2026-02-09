@@ -104,6 +104,20 @@ Define detection rules for your videos:
   --auto-detect
 ```
 
+### Test only the first 1 minute (faster iteration)
+
+```sh
+# 1) Create a 1-minute clip (no re-encode)
+ffmpeg -i "videos-standby/Abhinav- 30 mins format.mp4" -t 60 -c copy "videos_to_process/Abhinav_1min.mp4"
+
+# 2) Run batch-delogo on the clip
+./src/batch-delogo/batch-delogo \
+  --input-folder ./videos_to_process \
+  --output-folder ./processed_videos \
+  --config ./video_layouts.json \
+  --auto-detect
+```
+
 ### CLI Options
 
 | Option | Description |
