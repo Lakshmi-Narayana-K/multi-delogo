@@ -424,7 +424,7 @@ Copyright (C) 2021 Free Software Foundation, Inc.
 This config.status script is free software; the Free Software Foundation
 gives unlimited permission to copy, distribute and modify it."
 
-ac_pwd='/home/nxtwave/Desktop/CodeBase-HUB/multi-delogo'
+ac_pwd='/home/nxtwave/Documents/nxtwave_projects/multi-delogo'
 srcdir='.'
 INSTALL='/usr/bin/install -c'
 MKDIR_P='/usr/bin/mkdir -p'
@@ -721,12 +721,12 @@ S["mkdir_p"]="$(MKDIR_P)"
 S["MKDIR_P"]="/usr/bin/mkdir -p"
 S["INSTALL_STRIP_PROGRAM"]="$(install_sh) -c -s"
 S["STRIP"]=""
-S["install_sh"]="${SHELL} /home/nxtwave/Desktop/CodeBase-HUB/multi-delogo/install-sh"
-S["MAKEINFO"]="${SHELL} '/home/nxtwave/Desktop/CodeBase-HUB/multi-delogo/missing' makeinfo"
-S["AUTOHEADER"]="${SHELL} '/home/nxtwave/Desktop/CodeBase-HUB/multi-delogo/missing' autoheader"
-S["AUTOMAKE"]="${SHELL} '/home/nxtwave/Desktop/CodeBase-HUB/multi-delogo/missing' automake-1.16"
-S["AUTOCONF"]="${SHELL} '/home/nxtwave/Desktop/CodeBase-HUB/multi-delogo/missing' autoconf"
-S["ACLOCAL"]="${SHELL} '/home/nxtwave/Desktop/CodeBase-HUB/multi-delogo/missing' aclocal-1.16"
+S["install_sh"]="${SHELL} /home/nxtwave/Documents/nxtwave_projects/multi-delogo/install-sh"
+S["MAKEINFO"]="${SHELL} '/home/nxtwave/Documents/nxtwave_projects/multi-delogo/missing' makeinfo"
+S["AUTOHEADER"]="${SHELL} '/home/nxtwave/Documents/nxtwave_projects/multi-delogo/missing' autoheader"
+S["AUTOMAKE"]="${SHELL} '/home/nxtwave/Documents/nxtwave_projects/multi-delogo/missing' automake-1.16"
+S["AUTOCONF"]="${SHELL} '/home/nxtwave/Documents/nxtwave_projects/multi-delogo/missing' autoconf"
+S["ACLOCAL"]="${SHELL} '/home/nxtwave/Documents/nxtwave_projects/multi-delogo/missing' aclocal-1.16"
 S["VERSION"]="2.5.0"
 S["PACKAGE"]="multi-delogo"
 S["CYGPATH_W"]="echo"

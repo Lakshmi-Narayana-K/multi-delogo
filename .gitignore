@@ -1,2 +1,4 @@
 # Large video files (exceed GitHub 100MB limit)
 videos-standby/
+processed_videos/
+videos_to_process/

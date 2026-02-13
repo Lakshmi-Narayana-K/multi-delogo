@@ -1,0 +1,51 @@
+Loaded config: ./video_layouts.json
+Detection enabled: YES
+Moving logo tracking: YES
+Images directory: ./overlay-images
+Reference directory: ./reference_images
+Sample interval: 30 frames
+Layouts available: 1
+  - nxtwave_1080p: NxtWave Videos (1920x1080) (1920x1080) [10 detection(s)]
+
+Found 1 video(s) to process
+
+Processing: ./videos_to_process/Abhinav_7-8min.mp4
+  Resolution: 1920x1080
+  Frames: 1786, FPS: 29.97
+  Auto-detected layout: NxtWave Videos (1920x1080)
+  Running template matching detection...
+  [MOVING LOGO MODE] Tracking positions frame-by-frame...
+  Tracking: Logo Bottom Right
+  Tracking: Nxtwave With IB in Slide
+  Tracking: Nxtwave With IB Small
+  Tracking: Nxtwave without TM in top left
+  Tracking: CCBP IN SLIDE
+  Tracking: CCBP IN CENTER
+  Tracking: IB HUbs Author In Slide
+  Tracking: IB HUbs Author In Slide
+  Tracking: IB HUbs Author In Slide
+  Tracking: IB HUbs Full Screen
+  [Logo Bottom Right] Logo FOUND starting at frame 0
+  [IB HUbs Author In Slide] Logo FOUND starting at frame 0
+  Progress: frame 0/1786  Progress: frame 300/1786  Progress: frame 600/1786  Progress: frame 900/1786  [IB HUbs Author In Slide] Logo FOUND starting at frame 930
+  [IB HUbs Author In Slide] Logo LOST at frame 930 (tracked 1 positions)
+  Progress: frame 1200/1786  Progress: frame 1500/1786
+  [Logo Bottom Right] Final segment: frames 0-1770 with 58 tracked positions
+  [IB HUbs Author In Slide] Final segment: frames 0-1770 with 60 tracked positions
+  [IB HUbs Author In Slide] Final segment: frames 930-930 with 1 tracked positions
+  Detected 3 logo segment(s)
+
+  Detected moving logos - using frame-by-frame processing
+  [MOVING MODE] Processing video frame-by-frame...
+  Loaded replacement image: nxtwave_logo_replacement.png
+  Loaded replacement image: nxtwave_circle_logo_replacement.png
+  Progress: 0/1786 (0%)  Progress: 30/1786 (1%)  Progress: 60/1786 (3%)  Progress: 90/1786 (5%)  Progress: 120/1786 (6%)  Progress: 150/1786 (8%)  Progress: 180/1786 (10%)  Progress: 210/1786 (11%)  Progress: 240/1786 (13%)  Progress: 270/1786 (15%)  Progress: 300/1786 (16%)  Progress: 330/1786 (18%)  Progress: 360/1786 (20%)  Progress: 390/1786 (21%)  Progress: 420/1786 (23%)  Progress: 450/1786 (25%)  Progress: 480/1786 (26%)  Progress: 510/1786 (28%)  Progress: 540/1786 (30%)  Progress: 570/1786 (31%)  Progress: 600/1786 (33%)  Progress: 630/1786 (35%)  Progress: 660/1786 (36%)  Progress: 690/1786 (38%)  Progress: 720/1786 (40%)  Progress: 750/1786 (41%)  Progress: 780/1786 (43%)  Progress: 810/1786 (45%)  Progress: 840/1786 (47%)  Progress: 870/1786 (48%)  Progress: 900/1786 (50%)  Progress: 930/1786 (52%)  Progress: 960/1786 (53%)  Progress: 990/1786 (55%)  Progress: 1020/1786 (57%)  Progress: 1050/1786 (58%)  Progress: 1080/1786 (60%)  Progress: 1110/1786 (62%)  Progress: 1140/1786 (63%)  Progress: 1170/1786 (65%)  Progress: 1200/1786 (67%)  Progress: 1230/1786 (68%)  Progress: 1260/1786 (70%)  Progress: 1290/1786 (72%)  Progress: 1320/1786 (73%)  Progress: 1350/1786 (75%)  Progress: 1380/1786 (77%)  Progress: 1410/1786 (78%)  Progress: 1440/1786 (80%)  Progress: 1470/1786 (82%)  Progress: 1500/1786 (83%)  Progress: 1530/1786 (85%)  Progress: 1560/1786 (87%)  Progress: 1590/1786 (89%)  Progress: 1620/1786 (90%)  Progress: 1650/1786 (92%)  Progress: 1680/1786 (94%)  Progress: 1710/1786 (95%)  Progress: 1740/1786 (97%)  Progress: 1770/1786 (99%)
+  Processed 1786 frames
+  Total time: 171.565s
+  Output: ./processed_videos/Abhinav_7-8min_processed.mp4
+
+========================================
+Batch processing complete!
+  Success: 1
+  Errors: 0
+========================================
