@@ -170,9 +170,13 @@ bool process_video_with_moving_logos(
     fg::VideoLayoutManager& layout_manager,
     double fps)
 {
-  const int LEFT_EXIT_WHITE_W = 300;
-  const int LEFT_EXIT_WHITE_H = 144;
-  const int LEFT_EXIT_WHITE_TAIL_FRAMES = 5;
+  const int LEFT_EXIT_WHITE_W = 380;
+  const int LEFT_EXIT_WHITE_H = 200;
+  const int LEFT_EXIT_WHITE_TAIL_EXTRA_W = 260; // Deliberately extend to the right as a "tail" mask
+  const int LEFT_EXIT_WHITE_TAIL_FRAMES = 60;   // Deliberate post-exit white patch (~2s at 30fps)
+  const int LEFT_EXIT_PREWHITE_MARGIN_PX = 48;  // Start whitening slightly before full edge exit
+  const int LEFT_EXIT_PREWHITE_LEAD_FRAMES = 12; // Cover a few pre-exit frames where old-logo tail can leak
+  const int LEFT_EXIT_WHITE_Y_PAD = 24;         // Expand upward to hide residual tail text/edges
   const int MAX_HOLD_LAST_POSITION_FRAMES = 6;
 
   auto moving_mode_start = std::chrono::steady_clock::now();
@@ -301,7 +305,8 @@ bool process_video_with_moving_logos(
       int df = last->first - prev->first;
       if (df > 0) {
         double vx = static_cast<double>(last->second.first - prev->second.first) / df;
-        if (vx < -0.5) {
+        bool near_left_edge = last->second.first < (frame_width / 8);
+        if (vx < -0.5 || near_left_edge) {
           left_exit_white_enabled[i] = true;
           int anchor_x = std::max(0, last->second.first);
           int anchor_y = std::max(0, last->second.second);
@@ -340,9 +345,10 @@ bool process_video_with_moving_logos(
 
       bool in_effective_range = frame_num >= effective_range[det_idx].first &&
                                 frame_num <= effective_range[det_idx].second;
+      int post_white_start = std::max(det.end_frame, left_exit_last_tracked_frame[det_idx]);
       bool in_left_exit_white_tail = left_exit_white_enabled[det_idx] &&
-                                     frame_num > left_exit_last_tracked_frame[det_idx] &&
-                                     frame_num <= left_exit_last_tracked_frame[det_idx] + LEFT_EXIT_WHITE_TAIL_FRAMES;
+                                     frame_num > post_white_start &&
+                                     frame_num <= post_white_start + LEFT_EXIT_WHITE_TAIL_FRAMES;
       if (!in_effective_range && !in_left_exit_white_tail) {
         continue;
       }
@@ -353,7 +359,7 @@ bool process_video_with_moving_logos(
       // in the extended effective range; only allow a short cleanup tail window.
       if (left_exit_white_enabled[det_idx] &&
           left_exit_last_tracked_frame[det_idx] >= 0 &&
-          frame_num > left_exit_last_tracked_frame[det_idx] + LEFT_EXIT_WHITE_TAIL_FRAMES) {
+          frame_num > std::max(det.end_frame, left_exit_last_tracked_frame[det_idx]) + LEFT_EXIT_WHITE_TAIL_FRAMES) {
         interval_time_us[det_idx] += std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::steady_clock::now() - interval_t0).count();
         continue;
@@ -361,12 +367,13 @@ bool process_video_with_moving_logos(
 
       if (in_left_exit_white_tail) {
         cv::Mat scaled_white;
-        cv::resize(left_exit_white_overlay, scaled_white, cv::Size(LEFT_EXIT_WHITE_W, LEFT_EXIT_WHITE_H));
+        int white_w = LEFT_EXIT_WHITE_W + LEFT_EXIT_WHITE_TAIL_EXTRA_W;
+        cv::resize(left_exit_white_overlay, scaled_white, cv::Size(white_w, LEFT_EXIT_WHITE_H));
 
         int src_x = 0, src_y = 0;
         int dst_x = 0;
-        int dst_y = left_exit_white_anchor[det_idx].second;
-        int vis_w = LEFT_EXIT_WHITE_W, vis_h = LEFT_EXIT_WHITE_H;
+        int dst_y = left_exit_white_anchor[det_idx].second - LEFT_EXIT_WHITE_Y_PAD;
+        int vis_w = white_w, vis_h = LEFT_EXIT_WHITE_H;
 
         if (dst_x < 0) {
           src_x = -dst_x;
@@ -612,16 +619,20 @@ bool process_video_with_moving_logos(
       // For left-edge exits, force a white patch once the tracked box crosses x<0.
       // This prevents the old logo tail from peeking through during partial visibility.
       bool in_left_exit_window = left_exit_last_tracked_frame[det_idx] >= 0 &&
-                                 frame_num >= std::max(det.start_frame, left_exit_last_tracked_frame[det_idx] - 2) &&
+                                 frame_num >= std::max(det.start_frame, left_exit_last_tracked_frame[det_idx] - LEFT_EXIT_PREWHITE_LEAD_FRAMES) &&
                                  frame_num <= left_exit_last_tracked_frame[det_idx] + LEFT_EXIT_WHITE_TAIL_FRAMES;
-      if (left_exit_white_enabled[det_idx] && in_left_exit_window && x < 0) {
+      bool near_left_or_final_exit = (x < LEFT_EXIT_PREWHITE_MARGIN_PX) ||
+                                     (left_exit_last_tracked_frame[det_idx] >= 0 &&
+                                      frame_num >= left_exit_last_tracked_frame[det_idx] - 3);
+      if (left_exit_white_enabled[det_idx] && in_left_exit_window && near_left_or_final_exit) {
         cv::Mat scaled_white;
-        cv::resize(left_exit_white_overlay, scaled_white, cv::Size(LEFT_EXIT_WHITE_W, LEFT_EXIT_WHITE_H));
+        int white_w = LEFT_EXIT_WHITE_W + LEFT_EXIT_WHITE_TAIL_EXTRA_W;
+        cv::resize(left_exit_white_overlay, scaled_white, cv::Size(white_w, LEFT_EXIT_WHITE_H));
 
         int src_x = 0, src_y = 0;
         int dst_x = 0;
-        int dst_y = left_exit_white_anchor[det_idx].second;
-        int vis_w = LEFT_EXIT_WHITE_W, vis_h = LEFT_EXIT_WHITE_H;
+        int dst_y = left_exit_white_anchor[det_idx].second - LEFT_EXIT_WHITE_Y_PAD;
+        int vis_w = white_w, vis_h = LEFT_EXIT_WHITE_H;
 
         if (dst_x < 0) {
           src_x = -dst_x;
@@ -913,6 +924,7 @@ bool process_video_with_moving_logos(
    
    double best_val = -1.0;
    cv::Point best_loc(0, 0);
+   double best_scale = 1.0;  // Track which scale produced the best match
    
    if (use_multi_scale) {
    const double scales[] = { 0.9, 0.95, 1.0, 1.05, 1.1 };
@@ -935,6 +947,7 @@ bool process_video_with_moving_logos(
      if (max_val > best_val) {
        best_val = max_val;
        best_loc = max_loc;
+       best_scale = scales[s];
      }
    }
    } else {
@@ -945,13 +958,22 @@ bool process_video_with_moving_logos(
      cv::minMaxLoc(result, &min_val, &max_val, &min_loc, &max_loc);
      best_val = max_val;
      best_loc = max_loc;
+     best_scale = 1.0;
    }
    
    confidence = best_val;
    
    if (best_val >= threshold) {
-     found_x = roi_x + best_loc.x;
-     found_y = roi_y + best_loc.y;
+     // Normalize position to the scale=1.0 equivalent.
+     // matchTemplate returns the top-left of the *scaled* template match. When
+     // different scales win on different frames the raw top-left positions jitter
+     // by up to (scale_diff * template_size / 2) pixels, making the replacement
+     // appear to race ahead of or lag behind the real logo.
+     // Convert to centre of the matched region, then back to top-left at scale 1.0:
+     //   centre_x = best_loc.x + best_scale * tw / 2
+     //   norm_x   = centre_x - tw / 2 = best_loc.x + (best_scale - 1) * tw / 2
+     found_x = roi_x + best_loc.x + static_cast<int>(std::round((best_scale - 1.0) * template_img.cols / 2.0));
+     found_y = roi_y + best_loc.y + static_cast<int>(std::round((best_scale - 1.0) * template_img.rows / 2.0));
      return true;
    }
    
@@ -1284,11 +1306,20 @@ std::vector<DetectionResult> detect_logos_hybrid(
     } else {
       static_count++;
       total_static_sec += duration;
-      int mid = seg.positions.size() / 2;
+      // Sorted median (consistent with result building)
+      std::vector<int> disp_xs, disp_ys;
+      for (const auto& p : seg.positions) {
+        disp_xs.push_back(p.second.first);
+        disp_ys.push_back(p.second.second);
+      }
+      std::sort(disp_xs.begin(), disp_xs.end());
+      std::sort(disp_ys.begin(), disp_ys.end());
+      int disp_med_x = disp_xs[disp_xs.size() / 2];
+      int disp_med_y = disp_ys[disp_ys.size() / 2];
       std::cout << "    [" << ds.name << "]    STATIC  frames " << seg.start_frame << "-" << seg.end_frame
                 << " (" << std::fixed << std::setprecision(1) << start_sec << "s - " << end_sec << "s"
                 << ", dur=" << duration << "s)"
-                << " pos=(" << seg.positions[mid].second.first << "," << seg.positions[mid].second.second << ")"
+                << " pos=(" << disp_med_x << "," << disp_med_y << ")"
                 << " (" << seg.positions.size() << " coarse samples)" << std::endl;
     }
   }
@@ -1362,15 +1393,23 @@ std::vector<DetectionResult> detect_logos_hybrid(
                 << " (" << range_frames << " frames, "
                 << std::fixed << std::setprecision(1) << (range_frames / fps) << "s)..." << std::endl;
       
-      // Replace coarse positions with fine per-frame positions
+      // Replace coarse positions with fine per-frame positions.
+      // IMPORTANT: Seek once to range_start, then read sequentially.
+      // Per-frame seeking (cap.set + cap.read) can be inaccurate in concatenated
+      // videos, causing the stored frame number to not match the actual frame read.
+      // The renderer reads sequentially from frame 0, so if we also read
+      // sequentially here, the positions will match exactly.
       seg.positions.clear();
       int found_count = 0;
       
-      for (int f = range_start; f <= range_end; ++f) {
+      {
         auto seek_t0 = std::chrono::steady_clock::now();
-        cap.set(cv::CAP_PROP_POS_FRAMES, f);
+        cap.set(cv::CAP_PROP_POS_FRAMES, range_start);
         p3_seek_us += std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::steady_clock::now() - seek_t0).count();
+      }
+      
+      for (int f = range_start; f <= range_end; ++f) {
         cv::Mat frame;
         auto read_t0 = std::chrono::steady_clock::now();
         if (!cap.read(frame)) break;
@@ -1380,8 +1419,13 @@ std::vector<DetectionResult> detect_logos_hybrid(
         int found_x, found_y;
         double confidence;
         auto detect_t0 = std::chrono::steady_clock::now();
+        // Force single-scale (false) for MOVING fine scan.  Multi-scale introduces
+        // scale-dependent position offsets of up to (scale_diff * template_w / 2) px
+        // between frames, making the replacement race ahead of the actual logo.
+        // The logo does not change physical size during one transition, so scale=1.0
+        // gives the most accurate per-frame position tracking.
         bool found = detect_logo_in_frame(frame, ds.template_img, ds.effective_region,
-                                          ds.match_threshold, found_x, found_y, confidence, use_multi_scale);
+                                          ds.match_threshold, found_x, found_y, confidence, false);
         p3_detect_us[seg.det_idx] += std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::steady_clock::now() - detect_t0).count();
         p3_detect_calls[seg.det_idx]++;
@@ -1398,45 +1442,17 @@ std::vector<DetectionResult> detect_logos_hybrid(
       }
       std::cout << std::endl;
       
-      // Update segment boundaries from fine scan results
+      // Update segment boundaries from fine scan results.
+      // NOTE: We intentionally keep ALL fine-scanned positions, including
+      // the slow-transition frames at the start/end of the slide.  Previously
+      // an aggressive "moving-core trim" discarded these frames; the gap
+      // closure then covered them with the STATIC segment at a fixed position,
+      // causing the replacement to NOT slide with the original logo.
       if (!seg.positions.empty()) {
-        // Keep only the truly moving core inside the scanned range.
-        // Without this, the +/-coarse padding can pull static frames into a MOVING segment.
-        if (seg.positions.size() >= 3) {
-          const double per_frame_motion_threshold = 0.8;  // px/frame
-          const int transition_pad_frames = 8;            // keep a small context around movement
-          std::vector<bool> moving_point(seg.positions.size(), false);
-
-          for (size_t i = 1; i < seg.positions.size(); ++i) {
-            int dx = seg.positions[i].second.first - seg.positions[i-1].second.first;
-            int dy = seg.positions[i].second.second - seg.positions[i-1].second.second;
-            double dist = std::sqrt(static_cast<double>(dx * dx + dy * dy));
-            if (dist >= per_frame_motion_threshold) {
-              moving_point[i-1] = true;
-              moving_point[i] = true;
-            }
-          }
-
-          int first_move = -1, last_move = -1;
-          for (size_t i = 0; i < moving_point.size(); ++i) {
-            if (moving_point[i]) {
-              if (first_move < 0) first_move = static_cast<int>(i);
-              last_move = static_cast<int>(i);
-            }
-          }
-
-          if (first_move >= 0 && last_move >= first_move) {
-            int keep_start = std::max(0, first_move - transition_pad_frames);
-            int keep_end = std::min(static_cast<int>(seg.positions.size()) - 1, last_move + transition_pad_frames);
-            seg.positions = std::vector<std::pair<int, std::pair<int, int>>>(
-              seg.positions.begin() + keep_start, seg.positions.begin() + keep_end + 1);
-          }
-        }
-
         seg.start_frame = seg.positions.front().first;
         seg.end_frame = seg.positions.back().first;
         std::cout << "    [" << ds.name << "] Fine result: " << found_count << "/" << range_frames
-                  << " frames with logo, moving-core range=" << seg.start_frame << "-" << seg.end_frame << std::endl;
+                  << " frames with logo, range=" << seg.start_frame << "-" << seg.end_frame << std::endl;
       } else {
         std::cout << "    [" << ds.name << "] Fine result: NO positions found (segment will be skipped)" << std::endl;
       }
@@ -1659,9 +1675,10 @@ std::vector<DetectionResult> detect_logos_hybrid(
       }
     }
 
-    // Close inter-segment gaps for the same detection to avoid uncovered frames
-    // where the old logo can briefly appear. Prefer assigning gaps to MOVING ranges,
-    // because moving segments can extrapolate positions for those boundary frames.
+    // Close only short inter-segment gaps for the same detection to avoid brief
+    // uncovered boundary frames. Do NOT bridge long gaps, otherwise logos can stay
+    // visible for minutes ("stuck" overlay) when detections are sparse/noisy.
+    const int MAX_BOUNDARY_CLOSE_GAP_FRAMES = std::max(20, coarse_interval * 2);
     for (size_t det_idx = 0; det_idx < states.size(); ++det_idx) {
       std::vector<size_t> idxs;
       for (size_t si = 0; si < segments.size(); ++si) {
@@ -1677,15 +1694,20 @@ std::vector<DetectionResult> detect_logos_hybrid(
         auto& right = segments[idxs[k]];
         if (right.start_frame <= left.end_frame + 1) continue;  // no gap
 
+        int gap_frames = right.start_frame - left.end_frame - 1;
+        if (gap_frames > MAX_BOUNDARY_CLOSE_GAP_FRAMES) {
+          continue;
+        }
+
         int old_left_end = left.end_frame;
         int old_right_start = right.start_frame;
 
         if (!left.is_moving && right.is_moving) {
-          // static -> moving: pull moving earlier to cover the gap
-          right.start_frame = left.end_frame + 1;
-        } else if (left.is_moving && !right.is_moving) {
-          // moving -> static: extend moving later to cover the gap
+          // static -> moving: extend static forward to cover the gap
           left.end_frame = right.start_frame - 1;
+        } else if (left.is_moving && !right.is_moving) {
+          // moving -> static: extend static backward to cover the gap
+          right.start_frame = left.end_frame + 1;
         } else if (!left.is_moving && !right.is_moving) {
           // static -> static: split the gap at midpoint
           int mid = (left.end_frame + right.start_frame) / 2;
@@ -1730,6 +1752,13 @@ std::vector<DetectionResult> detect_logos_hybrid(
   auto final_build_start = std::chrono::steady_clock::now();
   std::cout << "\n  --- Final Detection Results ---" << std::endl;
   
+  // Boundary refinement constants (matching legacy detect_logos_in_video behaviour)
+  const int BOUNDARY_REFINE_WINDOW = 30;
+  const double REFINE_THRESHOLD_OFFSET_START = 0.08;
+  const double REFINE_THRESHOLD_OFFSET_END   = 0.05;
+  const int START_PADDING_FRAMES = 1;
+  const int END_PADDING_FRAMES   = 1;
+
   for (const auto& seg : segments) {
     if (seg.positions.empty()) continue;
     
@@ -1754,10 +1783,77 @@ std::vector<DetectionResult> detect_logos_hybrid(
       result.x = seg.positions[0].second.first;
       result.y = seg.positions[0].second.second;
     } else {
-      // Use median position for static segments
-      int mid = seg.positions.size() / 2;
-      result.x = seg.positions[mid].second.first;
-      result.y = seg.positions[mid].second.second;
+      // Use proper sorted median position for static segments.
+      // The mid-index approach picked whichever (x,y) happened to be at the
+      // chronological middle; a single false-positive match at an unrelated
+      // location would corrupt the position for the entire segment.
+      {
+        std::vector<int> xs, ys;
+        xs.reserve(seg.positions.size());
+        ys.reserve(seg.positions.size());
+        for (const auto& p : seg.positions) {
+          xs.push_back(p.second.first);
+          ys.push_back(p.second.second);
+        }
+        std::sort(xs.begin(), xs.end());
+        std::sort(ys.begin(), ys.end());
+        result.x = xs[xs.size() / 2];
+        result.y = ys[ys.size() / 2];
+      }
+
+      // --- Boundary refinement for STATIC segments ---
+      // Refine start: scan backward with a slightly lower threshold.
+      // Stop if position drifts too far (entering a transition zone).
+      {
+        const int MAX_REFINE_POSITION_DRIFT = 20;
+        double refine_threshold = std::max(0.35, ds.match_threshold - REFINE_THRESHOLD_OFFSET_START);
+        int refine_start = std::max(0, seg.start_frame - BOUNDARY_REFINE_WINDOW);
+        for (int b = seg.start_frame - 1; b >= refine_start; --b) {
+          cap.set(cv::CAP_PROP_POS_FRAMES, b);
+          cv::Mat bframe;
+          if (!cap.read(bframe)) break;
+          int bx, by;
+          double bconf;
+          if (detect_logo_in_frame(bframe, ds.template_img, ds.effective_region,
+                                   refine_threshold, bx, by, bconf, use_multi_scale)) {
+            int drift = std::abs(bx - result.x) + std::abs(by - result.y);
+            if (drift > MAX_REFINE_POSITION_DRIFT) break;
+            result.start_frame = b;
+          } else {
+            break;
+          }
+        }
+      }
+      // Refine end: scan forward with a slightly lower threshold.
+      // Do NOT update result.x/y here.
+      // Also stop extending if the detected position has drifted more than
+      // MAX_REFINE_POSITION_DRIFT px from the median — that means the logo
+      // is entering a transition/slide and these frames belong to the MOVING
+      // segment, not this STATIC one.
+      {
+        const int MAX_REFINE_POSITION_DRIFT = 20;
+        double refine_threshold = std::max(0.35, ds.match_threshold - REFINE_THRESHOLD_OFFSET_END);
+        int refine_end = std::min(frame_count - 1, seg.end_frame + BOUNDARY_REFINE_WINDOW);
+        for (int f = seg.end_frame + 1; f <= refine_end; ++f) {
+          cap.set(cv::CAP_PROP_POS_FRAMES, f);
+          cv::Mat fframe;
+          if (!cap.read(fframe)) break;
+          int fx, fy;
+          double fconf;
+          if (detect_logo_in_frame(fframe, ds.template_img, ds.effective_region,
+                                   refine_threshold, fx, fy, fconf, use_multi_scale)) {
+            // Stop if position drifted — logo is starting to slide
+            int drift = std::abs(fx - result.x) + std::abs(fy - result.y);
+            if (drift > MAX_REFINE_POSITION_DRIFT) break;
+            result.end_frame = f;
+          } else {
+            break;
+          }
+        }
+      }
+      // Apply small padding
+      result.start_frame = std::max(0, result.start_frame - START_PADDING_FRAMES);
+      result.end_frame   = std::min(frame_count - 1, result.end_frame + END_PADDING_FRAMES);
     }
     
     results.push_back(result);
@@ -1770,6 +1866,24 @@ std::vector<DetectionResult> detect_logos_hybrid(
       std::cout << " tracked=" << result.tracked_positions.size() << " positions";
     }
     std::cout << std::endl;
+  }
+
+  // Merge very short gaps between static segments with the same replacement (matching legacy behaviour)
+  const int MAX_SEGMENT_GAP_FRAMES = 20;
+  for (size_t i = 0; i < results.size(); ) {
+    if (i + 1 >= results.size()) break;
+    const auto& a = results[i];
+    const auto& b = results[i + 1];
+    if (!a.is_moving && !b.is_moving
+        && a.replacement_image == b.replacement_image && a.x == b.x && a.y == b.y) {
+      int gap = b.start_frame - a.end_frame;
+      if (gap <= MAX_SEGMENT_GAP_FRAMES && gap >= 0) {
+        results[i].end_frame = b.end_frame;
+        results.erase(results.begin() + static_cast<std::ptrdiff_t>(i + 1));
+        continue;
+      }
+    }
+    ++i;
   }
   
   std::cout << "  ========================================================" << std::endl;
@@ -2163,23 +2277,82 @@ bool process_video(const std::string& input_path,
   if (layout_manager.is_detection_enabled() && layout->uses_detection()) {
     std::cout << "  Running template matching detection..." << std::endl;
     
-    // NEW: Use hybrid detection if track_moving enabled
+    // Use hybrid detection if track_moving enabled; otherwise use legacy single-pass detector
     if (track_moving) {
-      detections = detect_logos_hybrid(input_path, layout_manager, *layout, sample_interval, use_multi_scale);
-      bool has_moving = false;
-      for (const auto& d : detections) {
+      auto hybrid_results = detect_logos_hybrid(input_path, layout_manager, *layout, sample_interval, use_multi_scale);
+      // Separate MOVING and STATIC segments from hybrid results in one pass
+      std::vector<DetectionResult> moving_from_hybrid;
+      std::vector<DetectionResult> static_from_hybrid;
+      for (auto& d : hybrid_results) {
         if (d.is_moving) {
-          has_moving = true;
-          break;
+          moving_from_hybrid.push_back(std::move(d));
+        } else {
+          static_from_hybrid.push_back(std::move(d));
         }
       }
-      if (!has_moving) {
-        std::cout << "  [TRACK-MOVING] No moving segments detected; using legacy static detector for stable static behavior" << std::endl;
-        auto static_only = detect_logos_in_video(input_path, layout_manager, *layout, sample_interval, use_multi_scale);
-        if (!static_only.empty()) {
-          detections = std::move(static_only);
-        } else {
-          std::cout << "  [TRACK-MOVING] Static fallback returned no segments; keeping hybrid static segments" << std::endl;
+
+      std::cout << "  [TRACK-MOVING] Hybrid returned " << moving_from_hybrid.size()
+                << " moving + " << static_from_hybrid.size() << " static segment(s)" << std::endl;
+
+      if (moving_from_hybrid.empty()) {
+        // No moving segments — use hybrid's static segments directly
+        detections = std::move(static_from_hybrid);
+      } else {
+        // Moving segments exist — split static segments around moving ranges
+        // so the static FFmpeg pass won't overwrite the frame-by-frame moving overlay.
+        std::vector<DetectionResult> split_static;
+        split_static.reserve(static_from_hybrid.size() + moving_from_hybrid.size());
+        for (auto& s : static_from_hybrid) {
+          // Collect all moving ranges for the same logo
+          std::vector<std::pair<int,int>> moving_ranges;
+          for (const auto& m : moving_from_hybrid) {
+            if (m.name == s.name) {
+              moving_ranges.push_back({m.start_frame, m.end_frame});
+            }
+          }
+          if (moving_ranges.empty()) {
+            // No moving overlap — keep as-is
+            split_static.push_back(std::move(s));
+            continue;
+          }
+          // Sort moving ranges by start frame
+          std::sort(moving_ranges.begin(), moving_ranges.end());
+          // Split the static segment around each moving range
+          int cur_start = s.start_frame;
+          for (const auto& mr : moving_ranges) {
+            if (mr.first > cur_start) {
+              // Create a static segment before the moving range
+              DetectionResult part = s; // copy
+              part.start_frame = cur_start;
+              part.end_frame = std::min(mr.first - 1, s.end_frame);
+              if (part.start_frame <= part.end_frame) {
+                std::cout << "    [SPLIT] " << s.name << " static " << s.start_frame << "-" << s.end_frame
+                          << " -> keeping " << part.start_frame << "-" << part.end_frame
+                          << " (before moving " << mr.first << "-" << mr.second << ")" << std::endl;
+                split_static.push_back(std::move(part));
+              }
+            }
+            cur_start = std::max(cur_start, mr.second + 1);
+          }
+          // Remaining tail after last moving range
+          if (cur_start <= s.end_frame) {
+            DetectionResult tail = s; // copy
+            tail.start_frame = cur_start;
+            tail.end_frame = s.end_frame;
+            std::cout << "    [SPLIT] " << s.name << " static " << s.start_frame << "-" << s.end_frame
+                      << " -> keeping " << tail.start_frame << "-" << tail.end_frame
+                      << " (after last moving range)" << std::endl;
+            split_static.push_back(std::move(tail));
+          }
+        }
+        // Merge: split static + hybrid moving
+        detections.clear();
+        detections.reserve(split_static.size() + moving_from_hybrid.size());
+        for (auto& s : split_static) {
+          detections.push_back(std::move(s));
+        }
+        for (auto& m : moving_from_hybrid) {
+          detections.push_back(std::move(m));
         }
       }
     } else {
@@ -2280,6 +2453,31 @@ bool process_video(const std::string& input_path,
     }
   }
   
+  // #region agent log — H-A,H-B,H-C,H-D: final strategy split
+  {
+    std::ofstream _dl("/home/nxtwave/Documents/nxtwave_projects/multi-delogo/.cursor/debug.log", std::ios::app);
+    for (size_t _i = 0; _i < moving_dets.size(); ++_i) {
+      const auto& _m = moving_dets[_i];
+      _dl << "{\"hypothesisId\":\"H-B,H-D\",\"location\":\"batch-delogo.cpp:strategy-split\","
+          << "\"message\":\"final_moving_det\",\"data\":{\"idx\":" << _i
+          << ",\"name\":\"" << _m.name << "\",\"start\":" << _m.start_frame
+          << ",\"end\":" << _m.end_frame << ",\"is_moving\":" << _m.is_moving
+          << ",\"tracked_count\":" << _m.tracked_positions.size()
+          << "},\"timestamp\":" << std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::system_clock::now().time_since_epoch()).count() << "}\n";
+    }
+    for (size_t _i = 0; _i < static_dets.size(); ++_i) {
+      const auto& _s = static_dets[_i];
+      _dl << "{\"hypothesisId\":\"H-A\",\"location\":\"batch-delogo.cpp:strategy-split\","
+          << "\"message\":\"final_static_det\",\"data\":{\"idx\":" << _i
+          << ",\"name\":\"" << _s.name << "\",\"start\":" << _s.start_frame
+          << ",\"end\":" << _s.end_frame << ",\"x\":" << _s.x << ",\"y\":" << _s.y
+          << "},\"timestamp\":" << std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::system_clock::now().time_since_epoch()).count() << "}\n";
+    }
+  }
+  // #endregion
+
   std::cout << "\n  --- Processing Strategy ---" << std::endl;
   std::cout << "  Static segments: " << static_dets.size() << std::endl;
   std::cout << "  Moving segments: " << moving_dets.size() << std::endl;
