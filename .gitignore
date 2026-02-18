@@ -1,2 +1,19 @@
 # Large video files (exceed GitHub 100MB limit)
 videos-standby/
+src/detect-moving/detect-moving
+src/detect-moving/*.o
+src/batch-delogo/batch-delogo
+src/batch-delogo/*.o
+# Video files
+videos_to_process/*.mp4
+videos_standby/*.mp4
+processed_videos/*.mp4
+docs/*.mp4
+
+# Compiled binaries
+src/**/*.o
+src/**/detect-moving
+src/**/batch-delogo
+src/**/logo-finder
+src/**/multi-delogo
+src/**/*.a
