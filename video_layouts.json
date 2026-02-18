@@ -12,7 +12,6 @@
           "name": "Logo Bottom Right",
           "reference_image": "nxt+ib-corner.png",
           "replacement_image": "nxtwave_logo_replacement.png",
-          "search_quadrant": 3,
           "match_threshold": 0.6,
           "replacement_scale": 1.0
         }, 
