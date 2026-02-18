@@ -1,17 +1,21 @@
 /*
  * detect-moving: Quick check whether a video contains moving logos.
  *
- * Two-phase detection:
- *   Phase 1 (coarse): Samples every Nth frame.  When a big position jump OR
- *                      a logo disappearance is detected, triggers Phase 2.
- *   Phase 2 (fine):    Reads every few frames in the gap and checks for
- *                      consistent linear movement.  If confirmed, prints
- *                      "true" and exits immediately.
+ * Detection logic mirrors batch-delogo's Phase 2 classifier:
  *
- * A logo is "moving" only when it shows real linear movement (same direction
- * across multiple frames, significant total displacement).
+ *   1. COARSE SCAN — sample every N frames, record (x,y) for each template.
+ *   2. PER-STEP CLASSIFICATION — for each consecutive pair of coarse positions:
+ *        dist = sqrt(dx² + dy²)
+ *        If dist >= motion_step_threshold (default 12 px) → both points flagged MOVING.
+ *   3. DILATION — each moving point also flags its immediate neighbours.
+ *   4. MOVING CONFIRMED when 2+ consecutive flagged points exist (i.e. two steps
+ *      in a row both >= threshold).  A single isolated jump is treated as noise.
  *
- * Exit codes: 0 = normal (result printed), 2 = error.
+ *   Additionally, when a tracked logo is LOST, a fine scan (every fine_step frames)
+ *   is run around the gap.  The same 12 px / 2-consecutive rule is applied to the
+ *   fine positions to catch fast transitions (< 1 s) invisible to the coarse scan.
+ *
+ * Exits with code 0 regardless of result (0 = normal, 2 = error).
  *
  * Usage:
  *   detect-moving --video PATH --config PATH [OPTIONS]
@@ -20,7 +24,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
-#include <deque>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -33,7 +36,7 @@
 #include "filter-generator/VideoLayoutConfig.hpp"
 
 
-// ── Template matching (single-scale) ────────────────────────────────────────
+// ── Template matching (single-scale, identical to batch-delogo) ─────────────
 static bool detect_logo_in_frame(const cv::Mat& frame,
                                  const cv::Mat& template_img,
                                  const fg::SearchRegion& region,
@@ -43,13 +46,11 @@ static bool detect_logo_in_frame(const cv::Mat& frame,
 {
   int roi_x = std::max(0, region.x);
   int roi_y = std::max(0, region.y);
-  int roi_w = std::min(region.width, frame.cols - roi_x);
+  int roi_w = std::min(region.width,  frame.cols - roi_x);
   int roi_h = std::min(region.height, frame.rows - roi_y);
   if (roi_w <= 0 || roi_h <= 0) return false;
 
-  cv::Rect roi(roi_x, roi_y, roi_w, roi_h);
-  cv::Mat search_area = frame(roi);
-
+  cv::Mat search_area = frame(cv::Rect(roi_x, roi_y, roi_w, roi_h));
   if (template_img.cols > roi_w || template_img.rows > roi_h) return false;
 
   cv::Mat result;
@@ -70,11 +71,7 @@ static bool detect_logo_in_frame(const cv::Mat& frame,
 
 
 // ── Position sample ─────────────────────────────────────────────────────────
-struct PosSample {
-  int frame;
-  int x;
-  int y;
-};
+struct PosSample { int frame, x, y; };
 
 
 // ── Per-detection tracking state ────────────────────────────────────────────
@@ -84,114 +81,186 @@ struct TrackState {
   fg::SearchRegion region;
   double           threshold;
 
-  bool has_prev   = false;
-  int  prev_frame = 0;
-  int  prev_x     = 0;
-  int  prev_y     = 0;
+  // Rolling coarse positions (last few samples)
+  std::vector<PosSample> history;
+
+  // Streak of consecutive steps that each exceeded the motion threshold
+  int consec_moves = 0;
 };
 
 
-// ── Check if a sequence of positions is consistent linear movement ──────────
-// Requires:
-//   - at least 3 points
-//   - net displacement >= min_shift
-//   - every step moves in the same direction as net (dot > 0)
-//   - every step has magnitude > 1px
-static bool is_linear(const std::vector<PosSample>& pts, double min_shift,
-                      double& net_dist, std::string& direction)
+// ── Classify positions using the batch-delogo Phase-2 rule ──────────────────
+// Returns true (MOVING confirmed) as soon as 2 consecutive steps each have
+// dist >= motion_step_threshold (mirrors the "dilate + 2-consecutive" test).
+// Also fills `result` with the first confirmed moving sample.
+struct MoveResult {
+  bool         confirmed = false;
+  std::string  direction;
+  PosSample    first_pos{};
+  PosSample    last_pos{};
+  double       net_dist  = 0;
+};
+
+static MoveResult classify_positions(const std::vector<PosSample>& pts,
+                                     double motion_step_threshold)
 {
-  if (pts.size() < 3) return false;
+  MoveResult r;
+  if (pts.size() < 3) return r;  // need at least 3 pts (2 steps)
 
-  double net_dx = pts.back().x - pts.front().x;
-  double net_dy = pts.back().y - pts.front().y;
-  net_dist = std::sqrt(net_dx * net_dx + net_dy * net_dy);
-  if (net_dist < min_shift) return false;
+  std::vector<bool> moving(pts.size(), false);
 
+  // Mark each point pair whose step exceeds the threshold
   for (size_t i = 1; i < pts.size(); ++i) {
-    double dx = pts[i].x - pts[i - 1].x;
-    double dy = pts[i].y - pts[i - 1].y;
-    double dot = dx * net_dx + dy * net_dy;
-    if (dot <= 0) return false;
-    double d = std::sqrt(dx * dx + dy * dy);
-    if (d < 1.0) return false;
-  }
-
-  if (std::abs(net_dx) > std::abs(net_dy))
-    direction = (net_dx > 0) ? "left-to-right" : "right-to-left";
-  else
-    direction = (net_dy > 0) ? "top-to-bottom" : "bottom-to-top";
-
-  return true;
-}
-
-
-// ── Fine scan: read frames in a range and collect positions ─────────────────
-static std::vector<PosSample> fine_scan(cv::VideoCapture& cap,
-                                        const TrackState& ts,
-                                        int start_frame, int end_frame,
-                                        int step, int& frames_checked,
-                                        bool verbose)
-{
-  std::vector<PosSample> pts;
-  for (int ff = start_frame; ff <= end_frame; ff += step) {
-    cap.set(cv::CAP_PROP_POS_FRAMES, ff);
-    cv::Mat fframe;
-    if (!cap.read(fframe)) break;
-    ++frames_checked;
-
-    int fx, fy;
-    double fc;
-    if (detect_logo_in_frame(fframe, ts.template_img, ts.region,
-                             ts.threshold, fx, fy, fc)) {
-      pts.push_back({ff, fx, fy});
-      if (verbose) {
-        std::cout << "    fine frame " << ff
-                  << " pos=(" << fx << "," << fy << ")\n";
-      }
+    double dx = pts[i].x - pts[i-1].x;
+    double dy = pts[i].y - pts[i-1].y;
+    double dist = std::sqrt(dx*dx + dy*dy);
+    if (dist >= motion_step_threshold) {
+      moving[i-1] = true;
+      moving[i]   = true;
     }
   }
-  return pts;
+
+  // Dilate by one (same as batch-delogo)
+  std::vector<bool> dilated = moving;
+  for (size_t i = 0; i < moving.size(); ++i) {
+    if (!moving[i]) continue;
+    if (i > 0)                     dilated[i-1] = true;
+    if (i + 1 < moving.size())     dilated[i+1] = true;
+  }
+
+  // Find first run of 2+ consecutive dilated points → MOVING
+  int run = 0;
+  for (size_t i = 0; i < dilated.size(); ++i) {
+    if (dilated[i]) {
+      ++run;
+      if (run >= 2) {
+        // Movement confirmed.
+        // Report positions from the ORIGINAL moving[] range (not the dilated
+        // neighbours) so that first_pos/last_pos reflect the actual slide.
+        int first_moving = -1, last_moving = -1;
+        for (size_t j = 0; j < moving.size(); ++j) {
+          if (moving[j]) {
+            if (first_moving < 0) first_moving = static_cast<int>(j);
+            last_moving = static_cast<int>(j);
+          }
+        }
+        r.confirmed = true;
+        r.first_pos = pts[first_moving >= 0 ? first_moving : 0];
+        r.last_pos  = pts[last_moving  >= 0 ? last_moving  : static_cast<int>(pts.size()) - 1];
+        double net_dx = r.last_pos.x - r.first_pos.x;
+        double net_dy = r.last_pos.y - r.first_pos.y;
+        r.net_dist   = std::sqrt(net_dx*net_dx + net_dy*net_dy);
+        if (std::abs(net_dx) > std::abs(net_dy))
+          r.direction = (net_dx > 0) ? "left-to-right" : "right-to-left";
+        else
+          r.direction = (net_dy > 0) ? "top-to-bottom" : "bottom-to-top";
+        return r;
+      }
+    } else {
+      run = 0;
+    }
+  }
+  return r;
 }
 
 
-// ── Usage ───────────────────────────────────────────────────────────────────
+// ── Fine scan with early-stop: collects positions and confirms movement ASAP ─
+// Applies the same 12 px / 2-consecutive rule on a rolling basis.
+// Stops and returns confirmed=true as soon as movement is confirmed.
+// If the full range is scanned without confirmation, returns confirmed=false
+// with all collected positions for the caller to inspect if needed.
+static MoveResult scan_range_rolling(cv::VideoCapture& cap,
+                                     const TrackState& ts,
+                                     int start_frame, int end_frame,
+                                     int step, double motion_threshold,
+                                     int& frames_checked, bool verbose,
+                                     const char* label)
+{
+  std::vector<PosSample> pts;
+  const int FINE_HISTORY = 6;
+
+  for (int ff = start_frame; ff <= end_frame; ff += step) {
+    cap.set(cv::CAP_PROP_POS_FRAMES, ff);
+    cv::Mat f;
+    if (!cap.read(f)) break;
+    ++frames_checked;
+
+    int fx, fy; double fc;
+    if (detect_logo_in_frame(f, ts.template_img, ts.region, ts.threshold, fx, fy, fc)) {
+      pts.push_back({ff, fx, fy});
+      if (static_cast<int>(pts.size()) > FINE_HISTORY)
+        pts.erase(pts.begin());
+
+      if (verbose)
+        std::cout << "    [" << label << "] frame " << ff
+                  << " pos=(" << fx << "," << fy << ")\n";
+
+      // Check after every new point — stop as soon as confirmed
+      MoveResult r = classify_positions(pts, motion_threshold);
+      if (r.confirmed) return r;
+    }
+  }
+  return MoveResult{};  // not confirmed
+}
+
+
+// ── Usage ────────────────────────────────────────────────────────────────────
 static void print_usage(const char* prog)
 {
   std::cout
     << "Usage: " << prog << " --video PATH --config PATH [OPTIONS]\n\n"
-    << "Quickly detect whether a video contains moving logos.\n"
-    << "Detects real linear movement (e.g. sliding left-to-right), ignores jitter.\n\n"
+    << "Detects moving logos using the same classifier as batch-delogo:\n"
+    << "  dist >= motion-threshold on 2 consecutive coarse samples = MOVING.\n\n"
     << "Options:\n"
-    << "  --video PATH            Video file to check\n"
-    << "  --config PATH           Path to video_layouts.json\n"
-    << "  --sample-interval N     Coarse scan: every Nth frame (default: 30)\n"
-    << "  --jump-threshold PX     Coarse jump that triggers fine scan (default: 30)\n"
-    << "  --min-total-shift PX    Net displacement in fine scan to confirm (default: 50)\n"
-    << "  --verbose               Print per-frame info\n"
-    << "  --help                  Show this message\n"
+    << "  --video PATH              Video file to check\n"
+    << "  --config PATH             Path to video_layouts.json\n"
+    << "  --sample-interval N       Coarse scan: every Nth frame (default: 30)\n"
+    << "  --motion-threshold PX     Per-step displacement to flag moving (default: 12)\n"
+    << "  --fine-step N             Step for fine scan on logo-loss (default: 5)\n"
+    << "  --verbose                 Print per-frame info\n"
+    << "  --help                    Show this message\n"
     << std::endl;
 }
 
 
-// ── main ────────────────────────────────────────────────────────────────────
+// ── Print result ─────────────────────────────────────────────────────────────
+static void print_found(const std::string& logo_name, const MoveResult& r,
+                         double fps, double scan_secs, int frames_checked)
+{
+  double ts_sec = (fps > 0) ? r.last_pos.frame / fps : 0;
+  int vm = static_cast<int>(ts_sec) / 60;
+  int vs = static_cast<int>(ts_sec) % 60;
+  std::cout << "\nMOVING LOGO DETECTED: true\n"
+            << "  Logo      : " << logo_name << "\n"
+            << "  Direction : " << r.direction << "\n"
+            << "  Frames    : " << r.first_pos.frame << " -> " << r.last_pos.frame
+            << "  (video time " << vm << "m " << vs << "s)\n"
+            << "  Start pos : (" << r.first_pos.x << ", " << r.first_pos.y << ")\n"
+            << "  End pos   : (" << r.last_pos.x  << ", " << r.last_pos.y  << ")\n"
+            << "  Net shift : " << std::fixed << std::setprecision(1) << r.net_dist << " px\n"
+            << "  Scan time : " << std::setprecision(1) << scan_secs << "s ("
+            << frames_checked << " frames checked)\n";
+}
+
+
+// ── main ─────────────────────────────────────────────────────────────────────
 int main(int argc, char* argv[])
 {
-  std::string video_path;
-  std::string config_path;
-  int    sample_interval  = 30;
-  double jump_threshold   = 30.0;
-  double min_total_shift  = 50.0;
-  bool   verbose          = false;
+  std::string video_path, config_path;
+  int    sample_interval    = 30;
+  double motion_threshold   = 12.0;   // mirrors batch-delogo motion_step_threshold
+  int    fine_step          = 5;
+  bool   verbose            = false;
 
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
-    if (arg == "--help" || arg == "-h") { print_usage(argv[0]); return 0; }
-    else if (arg == "--video"            && i + 1 < argc) video_path       = argv[++i];
-    else if (arg == "--config"           && i + 1 < argc) config_path      = argv[++i];
-    else if (arg == "--sample-interval"  && i + 1 < argc) sample_interval  = std::atoi(argv[++i]);
-    else if (arg == "--jump-threshold"   && i + 1 < argc) jump_threshold   = std::atof(argv[++i]);
-    else if (arg == "--min-total-shift"  && i + 1 < argc) min_total_shift  = std::atof(argv[++i]);
-    else if (arg == "--verbose") verbose = true;
+    if      (arg == "--help" || arg == "-h")                { print_usage(argv[0]); return 0; }
+    else if (arg == "--video"            && i+1 < argc)     video_path        = argv[++i];
+    else if (arg == "--config"           && i+1 < argc)     config_path       = argv[++i];
+    else if (arg == "--sample-interval"  && i+1 < argc)     sample_interval   = std::atoi(argv[++i]);
+    else if (arg == "--motion-threshold" && i+1 < argc)     motion_threshold  = std::atof(argv[++i]);
+    else if (arg == "--fine-step"        && i+1 < argc)     fine_step         = std::atoi(argv[++i]);
+    else if (arg == "--verbose")                             verbose           = true;
     else { std::cerr << "Unknown option: " << arg << "\n"; print_usage(argv[0]); return 2; }
   }
 
@@ -201,7 +270,7 @@ int main(int argc, char* argv[])
     return 2;
   }
 
-  // ── Load config ───────────────────────────────────────────────────────
+  // ── Load config ────────────────────────────────────────────────────────
   fg::VideoLayoutManager layout_mgr;
   if (!layout_mgr.load_from_file(config_path)) {
     std::cerr << "Error: Cannot load config " << config_path << "\n";
@@ -215,7 +284,7 @@ int main(int argc, char* argv[])
     }
   }
 
-  // ── Open video ────────────────────────────────────────────────────────
+  // ── Open video ─────────────────────────────────────────────────────────
   cv::VideoCapture cap(video_path);
   if (!cap.isOpened()) {
     std::cerr << "Error: Cannot open video " << video_path << "\n";
@@ -238,13 +307,12 @@ int main(int argc, char* argv[])
   }
   std::cout << "  Layout: " << layout->name << "\n";
 
-  // ── Build tracking state per detection ────────────────────────────────
+  // ── Build tracking states ──────────────────────────────────────────────
   std::vector<TrackState> tracks;
   for (const auto& det : layout->detections) {
-    std::string ref = layout_mgr.get_reference_path(det.reference_image);
-    cv::Mat tmpl = cv::imread(ref);
+    cv::Mat tmpl = cv::imread(layout_mgr.get_reference_path(det.reference_image));
     if (tmpl.empty()) {
-      std::cerr << "  Warning: cannot load " << ref << "\n";
+      std::cerr << "  Warning: cannot load " << det.reference_image << "\n";
       continue;
     }
     TrackState ts;
@@ -267,56 +335,16 @@ int main(int argc, char* argv[])
     return 2;
   }
 
-  std::cout << "  Templates       : " << tracks.size() << "\n"
-            << "  Sample interval : " << sample_interval << " frames\n"
-            << "  Jump threshold  : " << jump_threshold << " px  (triggers fine scan)\n"
-            << "  Min total shift : " << min_total_shift << " px  (confirms movement)\n\n";
+  std::cout << "  Templates         : " << tracks.size() << "\n"
+            << "  Sample interval   : " << sample_interval << " frames\n"
+            << "  Motion threshold  : " << motion_threshold << " px/step\n"
+            << "  Fine step         : " << fine_step << " frames (used on logo-loss)\n\n";
 
-  // ── Helper: attempt fine scan and check for linear movement ───────────
-  auto try_fine_scan = [&](TrackState& ts, int fine_start, int fine_end,
-                           int& frames_checked, const char* reason) -> bool
-  {
-    const int fine_step = 5;  // every 5th frame
-
-    if (verbose) {
-      std::cout << "    -> " << reason
-                << ", fine scanning frames " << fine_start << "-" << fine_end << "...\n";
-    }
-
-    auto pts = fine_scan(cap, ts, fine_start, fine_end, fine_step,
-                         frames_checked, verbose);
-
-    double net_dist = 0;
-    std::string direction;
-    if (is_linear(pts, min_total_shift, net_dist, direction)) {
-      double ts_sec = (fps > 0) ? pts.back().frame / fps : 0;
-      int vm = static_cast<int>(ts_sec) / 60;
-      int vs = static_cast<int>(ts_sec) % 60;
-
-      std::cout << "\nMOVING LOGO DETECTED: true\n"
-                << "  Logo      : " << ts.name << "\n"
-                << "  Direction : " << direction << "\n"
-                << "  Frames    : " << pts.front().frame
-                << " -> " << pts.back().frame
-                << "  (video time " << vm << "m " << vs << "s)\n"
-                << "  Start pos : (" << pts.front().x << ", " << pts.front().y << ")\n"
-                << "  End pos   : (" << pts.back().x << ", " << pts.back().y << ")\n"
-                << "  Net shift : " << std::fixed << std::setprecision(1)
-                << net_dist << " px\n";
-      return true;
-    }
-
-    if (verbose) {
-      std::cout << "    Fine scan: not confirmed linear ("
-                << pts.size() << " pts, net="
-                << std::fixed << std::setprecision(1) << net_dist << "px)\n";
-    }
-    return false;
-  };
-
-  // ── Phase 1: Coarse scan ──────────────────────────────────────────────
+  // ── Coarse scan ────────────────────────────────────────────────────────
   auto t0 = std::chrono::steady_clock::now();
   int  frames_checked = 0;
+  // Keep last (sample_interval+1) positions per track — enough for classification
+  const int HISTORY_KEEP = 6;
 
   for (int fn = 0; fn < frame_count; fn += sample_interval) {
     cap.set(cv::CAP_PROP_POS_FRAMES, fn);
@@ -333,72 +361,69 @@ int main(int argc, char* argv[])
                                         ts.threshold, x, y, conf);
 
       if (found) {
+        // ── verbose ────────────────────────────────────────────────
         if (verbose) {
           double step = 0;
-          if (ts.has_prev) {
-            double dx = x - ts.prev_x, dy = y - ts.prev_y;
-            step = std::sqrt(dx * dx + dy * dy);
+          if (!ts.history.empty()) {
+            double dx = x - ts.history.back().x;
+            double dy = y - ts.history.back().y;
+            step = std::sqrt(dx*dx + dy*dy);
           }
           std::cout << "  [" << ts.name << "] frame " << fn
                     << " (" << std::fixed << std::setprecision(1) << time_sec << "s)"
                     << " pos=(" << x << "," << y << ")"
-                    << " step=" << step << "px\n";
+                    << " step=" << std::setprecision(1) << step << "px\n";
         }
 
-        // Case 1: Big jump between two consecutive found positions
-        if (ts.has_prev) {
-          double dx = x - ts.prev_x;
-          double dy = y - ts.prev_y;
-          double jump = std::sqrt(dx * dx + dy * dy);
+        ts.history.push_back({fn, x, y});
+        // Trim history to HISTORY_KEEP entries
+        if (static_cast<int>(ts.history.size()) > HISTORY_KEEP)
+          ts.history.erase(ts.history.begin());
 
-          if (jump >= jump_threshold) {
-            int fine_start = ts.prev_frame;
-            int fine_end   = std::min(frame_count - 1, fn + sample_interval);
-
-            if (try_fine_scan(ts, fine_start, fine_end, frames_checked, "Big jump")) {
-              auto el = std::chrono::steady_clock::now() - t0;
-              std::cout << "  Scan time : " << std::setprecision(1)
-                        << std::chrono::duration<double>(el).count() << "s ("
-                        << frames_checked << " frames checked)\n";
-              cap.release();
-              return 0;
-            }
-            cap.set(cv::CAP_PROP_POS_FRAMES, fn);  // restore position
-          }
+        // ── Classify with batch-delogo Phase-2 rule ───────────────
+        MoveResult r = classify_positions(ts.history, motion_threshold);
+        if (r.confirmed) {
+          auto el = std::chrono::steady_clock::now() - t0;
+          print_found(ts.name, r, fps,
+                      std::chrono::duration<double>(el).count(), frames_checked);
+          cap.release();
+          return 0;  // EXIT: MOVING confirmed
         }
-
-        ts.prev_frame = fn;
-        ts.prev_x     = x;
-        ts.prev_y     = y;
-        ts.has_prev   = true;
 
       } else {
-        // Case 2: Logo was being tracked and now LOST
-        //         Fine-scan the gap to see if it slid away before disappearing
-        if (ts.has_prev) {
-          if (verbose) {
+        // Logo LOST — fine-scan the gap to catch fast (< 1 s) transitions
+        if (!ts.history.empty()) {
+          if (verbose)
             std::cout << "  [" << ts.name << "] frame " << fn
-                      << " (" << std::setprecision(1) << time_sec << "s) LOST\n";
-          }
+                      << " (" << std::setprecision(1) << time_sec << "s) LOST"
+                      << " — fine-scanning...\n";
 
-          int fine_start = std::max(0, ts.prev_frame - sample_interval);
+          int fine_start = std::max(0, ts.history.back().frame);
           int fine_end   = std::min(frame_count - 1, fn + sample_interval);
 
-          if (try_fine_scan(ts, fine_start, fine_end, frames_checked, "Logo lost")) {
+          MoveResult r = scan_range_rolling(cap, ts, fine_start, fine_end,
+                                           fine_step, motion_threshold,
+                                           frames_checked, verbose, "fine");
+          if (r.confirmed) {
             auto el = std::chrono::steady_clock::now() - t0;
-            std::cout << "  Scan time : " << std::setprecision(1)
-                      << std::chrono::duration<double>(el).count() << "s ("
-                      << frames_checked << " frames checked)\n";
+            print_found(ts.name, r, fps,
+                        std::chrono::duration<double>(el).count(), frames_checked);
             cap.release();
-            return 0;
+            return 0;  // EXIT: MOVING confirmed via fine scan
           }
-          cap.set(cv::CAP_PROP_POS_FRAMES, fn);  // restore position
+
+          if (verbose && !r.confirmed)
+            std::cout << "    Fine scan: no movement confirmed\n";
+
+          // Restore coarse position
+          cap.set(cv::CAP_PROP_POS_FRAMES, fn);
         }
-        ts.has_prev = false;
+        // Reset history — logo absent, start fresh
+        ts.history.clear();
       }
     }
 
-    // Progress
+    // Progress dot
     if (!verbose && frames_checked % 50 == 0) {
       int pct = fn * 100 / std::max(1, frame_count);
       std::cout << "  Scanned " << fn << "/" << frame_count
@@ -406,17 +431,17 @@ int main(int argc, char* argv[])
     }
   }
 
-  // ── No movement found ─────────────────────────────────────────────────
+  // ── No movement found ──────────────────────────────────────────────────
   auto elapsed = std::chrono::steady_clock::now() - t0;
   double secs  = std::chrono::duration<double>(elapsed).count();
   double total_sec = (fps > 0) ? frame_count / fps : 0;
   int vm = static_cast<int>(total_sec) / 60;
   int vs = static_cast<int>(total_sec) % 60;
   std::cout << "\nMOVING LOGO DETECTED: false\n"
-            << "  Video duration: " << vm << "m " << vs << "s\n"
-            << "  Scan time : " << std::fixed << std::setprecision(1)
+            << "  Video duration : " << vm << "m " << vs << "s\n"
+            << "  Scan time      : " << std::fixed << std::setprecision(1)
             << secs << "s (" << frames_checked << " frames checked)\n"
-            << "  No linear movement above " << min_total_shift << "px detected.\n";
+            << "  No movement above " << motion_threshold << "px/step detected.\n";
   cap.release();
   return 0;
 }
