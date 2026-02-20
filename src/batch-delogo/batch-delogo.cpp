@@ -17,11 +17,16 @@
  * along with multi-delogo.  If not, see <http://www.gnu.org/licenses/>.
  */
  #include <chrono>
+ #include <cmath>
  #include <cstdlib>
+ #include <deque>
+ #include <iomanip>
  #include <iostream>
  #include <fstream>
+ #include <mutex>
  #include <sstream>
  #include <string>
+ #include <thread>
  #include <vector>
  #include <dirent.h>
  #include <sys/stat.h>
@@ -240,14 +245,94 @@
    double last_confidence = 0.0;
  };
  
- // Detect logo presence: one pass over video, all detections per frame (optimized)
- std::vector<DetectionResult> detect_logos_in_video(
-     const std::string& video_path,
-     fg::VideoLayoutManager& layout_manager,
-     const fg::VideoLayout& layout,
-     int sample_interval,
-     bool use_multi_scale)
- {
+// ── Moving-logo structs + classifier ─────────────────────────────────────────
+// Declared here (before detect_logos_in_video) so they are visible inside it.
+
+struct MovPosSample { int frame; int x; int y; };
+
+struct MovTrackState {
+  std::string       name;
+  cv::Mat           template_img;
+  fg::SearchRegion  region;
+  double            threshold;
+  std::vector<MovPosSample> history;
+  MovPosSample      pre_loss_pos{-1, 0, 0};
+};
+
+struct MovingEvent {
+  std::string  video_path;
+  std::string  logo_name;
+  int          frame_num  = 0;
+  double       fps        = 30.0;
+  std::string  direction;
+  double       net_dist   = 0.0;
+};
+
+// Returns true when 2+ consecutive coarse steps exceed threshold (Phase-2 rule)
+static bool mov_classify(const std::vector<MovPosSample>& pts,
+                         double threshold,
+                         MovingEvent& out,
+                         const std::string& logo_name,
+                         const std::string& video_path,
+                         double fps)
+{
+  if (pts.size() < 3) return false;
+
+  std::vector<bool> moving(pts.size(), false);
+  for (size_t i = 1; i < pts.size(); ++i) {
+    double dx = pts[i].x - pts[i-1].x;
+    double dy = pts[i].y - pts[i-1].y;
+    if (std::sqrt(dx*dx + dy*dy) >= threshold) {
+      moving[i-1] = moving[i] = true;
+    }
+  }
+
+  std::vector<bool> dilated = moving;
+  for (size_t i = 0; i < moving.size(); ++i) {
+    if (!moving[i]) continue;
+    if (i > 0)                  dilated[i-1] = true;
+    if (i+1 < moving.size())    dilated[i+1] = true;
+  }
+
+  int run = 0;
+  for (size_t i = 0; i < dilated.size(); ++i) {
+    if (dilated[i]) {
+      if (++run >= 2) {
+        int fi = -1, li = -1;
+        for (size_t j = 0; j < moving.size(); ++j)
+          if (moving[j]) { if (fi < 0) fi = static_cast<int>(j); li = static_cast<int>(j); }
+        const auto& fp = pts[fi >= 0 ? fi : 0];
+        const auto& lp = pts[li >= 0 ? li : static_cast<int>(pts.size())-1];
+        double ndx = lp.x - fp.x;
+        double ndy = lp.y - fp.y;
+        out.logo_name  = logo_name;
+        out.video_path = video_path;
+        out.frame_num  = fp.frame;
+        out.fps        = fps;
+        out.net_dist   = std::sqrt(ndx*ndx + ndy*ndy);
+        out.direction  = (std::abs(ndx) > std::abs(ndy))
+                         ? (ndx > 0 ? "left-to-right" : "right-to-left")
+                         : (ndy > 0 ? "top-to-bottom" : "bottom-to-top");
+        return true;
+      }
+    } else {
+      run = 0;
+    }
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Detect logo presence: one pass over video, all detections per frame.
+// Pure static detection — moving-logo tracking runs in a parallel thread.
+std::vector<DetectionResult> detect_logos_in_video(
+    const std::string& video_path,
+    fg::VideoLayoutManager& layout_manager,
+    const fg::VideoLayout& layout,
+    int sample_interval,
+    bool use_multi_scale)
+{
    std::vector<DetectionResult> results;
    
    cv::VideoCapture cap(video_path);
@@ -291,7 +376,9 @@
                << " region (" << effective_region.x << "," << effective_region.y << ") "
                << effective_region.width << "x" << effective_region.height << std::endl;
    }
-   
+
+   auto t_scan_start = std::chrono::steady_clock::now();
+
    const int MAX_CONSECUTIVE_MISSES = 5;
    const int START_PADDING_FRAMES = 1;     // Start overlay earlier so new logo is on screen before old one appears
    const int END_PADDING_FRAMES = 1;       // Extra frames at segment end only (reduces original-logo flash)
@@ -461,6 +548,7 @@
          }
        }
      }
+
    }
    
    // Close segments that run to end of video
@@ -501,21 +589,159 @@
      }
      ++i;
    }
-   
+
+   double scan_secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_scan_start).count();
+   std::cout << std::fixed << std::setprecision(1)
+             << "  [DETECT] Static detection scan: " << scan_secs << "s\n";
+
    cap.release();
    return results;
- }
+}
  
  
- bool process_video(const std::string& input_path,
-                    const std::string& output_path,
-                    fg::VideoLayoutManager& layout_manager,
-                    const std::string& layout_id,
-                    bool auto_detect,
-                    const std::string& ffmpeg_path,
-                    int sample_interval,
-                    bool dry_run,
-                    bool use_multi_scale)
+// Scan a video for moving logos (runs in its own thread parallel to detect_logos_in_video).
+// Uses its own VideoCapture so there is no contention with the detection thread.
+static std::vector<MovingEvent> scan_moving_logos(
+    const std::string& video_path,
+    fg::VideoLayoutManager& layout_mgr,
+    const fg::VideoLayout& layout,
+    double fps,
+    int sample_interval)
+{
+  std::vector<MovingEvent> events;
+
+  cv::VideoCapture cap(video_path);
+  if (!cap.isOpened()) return events;
+
+  int frame_count = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_COUNT));
+  int fw          = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+  int fh          = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+
+  std::vector<MovTrackState> tracks;
+  for (const auto& det : layout.detections) {
+    cv::Mat tmpl = cv::imread(layout_mgr.get_reference_path(det.reference_image));
+    if (tmpl.empty()) continue;
+    MovTrackState ts;
+    ts.name         = det.name;
+    ts.template_img = tmpl;
+    ts.threshold    = det.match_threshold;
+    if (det.search_quadrant >= 1 && det.search_quadrant <= 4)
+      ts.region = fg::search_region_from_quadrant(fw, fh, det.search_quadrant);
+    else if (det.search_region.width > 0 && det.search_region.height > 0)
+      ts.region = det.search_region;
+    else
+      ts.region = fg::SearchRegion(0, 0, fw, fh);
+    tracks.push_back(std::move(ts));
+  }
+  if (tracks.empty()) { cap.release(); return events; }
+
+  const int    HISTORY_KEEP     = 6;
+  const double MOTION_THRESHOLD = 12.0;
+  const int    FINE_STEP        = 5;
+  const int    MAX_LOSS_GAP     = sample_interval * 10;
+
+  auto report = [&](const MovingEvent& ev) {
+    int sec = static_cast<int>(ev.frame_num / std::max(ev.fps, 0.01));
+    std::cout << "  [MOVING] " << ev.logo_name
+              << " at " << sec/60 << "m " << std::setw(2) << std::setfill('0') << sec%60 << "s"
+              << std::setfill(' ')
+              << " | direction: " << ev.direction
+              << " | shift: " << std::fixed << std::setprecision(1) << ev.net_dist << " px\n";
+    events.push_back(ev);
+  };
+
+  auto t_start = std::chrono::steady_clock::now();
+
+  for (int fn = 0; fn < frame_count; fn += sample_interval) {
+    cap.set(cv::CAP_PROP_POS_FRAMES, fn);
+    cv::Mat frame;
+    if (!cap.read(frame)) break;
+
+    for (auto& ts : tracks) {
+      int x = 0, y = 0; double conf = 0.0;
+      bool found = detect_logo_in_frame(frame, ts.template_img, ts.region,
+                                        ts.threshold, x, y, conf, false);
+      if (found) {
+        // Position-jump check: logo reappears at very different position after a gap
+        if (ts.history.empty() && ts.pre_loss_pos.frame >= 0) {
+          double dx   = static_cast<double>(x - ts.pre_loss_pos.x);
+          double dy   = static_cast<double>(y - ts.pre_loss_pos.y);
+          double dist = std::sqrt(dx*dx + dy*dy);
+          int    gap  = fn - ts.pre_loss_pos.frame;
+          if (dist >= MOTION_THRESHOLD && gap <= MAX_LOSS_GAP) {
+            MovingEvent ev;
+            ev.video_path = video_path;
+            ev.logo_name  = ts.name;
+            ev.frame_num  = ts.pre_loss_pos.frame;
+            ev.fps        = fps;
+            ev.net_dist   = dist;
+            ev.direction  = (std::abs(dx) > std::abs(dy))
+                            ? (dx > 0 ? "left-to-right" : "right-to-left")
+                            : (dy > 0 ? "top-to-bottom" : "bottom-to-top");
+            report(ev);
+          }
+          ts.pre_loss_pos = {-1, 0, 0};
+        }
+        ts.history.push_back({fn, x, y});
+        if (static_cast<int>(ts.history.size()) > HISTORY_KEEP)
+          ts.history.erase(ts.history.begin());
+        MovingEvent ev;
+        if (mov_classify(ts.history, MOTION_THRESHOLD, ev, ts.name, video_path, fps)) {
+          report(ev);
+          ts.history.clear();
+        }
+      } else {
+        // Logo lost: fine-scan gap to catch fast transitions
+        if (!ts.history.empty()) {
+          ts.pre_loss_pos = ts.history.back();
+          int fine_start = ts.history.back().frame;
+          int fine_end   = std::min(frame_count - 1, fn + sample_interval);
+          std::vector<MovPosSample> fine_pts;
+          cap.set(cv::CAP_PROP_POS_FRAMES, fine_start);
+          for (int ff = fine_start; ff <= fine_end; ff += FINE_STEP) {
+            cap.set(cv::CAP_PROP_POS_FRAMES, ff);
+            cv::Mat f;
+            if (!cap.read(f)) break;
+            int fx = 0, fy = 0; double fc = 0.0;
+            if (detect_logo_in_frame(f, ts.template_img, ts.region,
+                                     ts.threshold, fx, fy, fc, false)) {
+              fine_pts.push_back({ff, fx, fy});
+              if (static_cast<int>(fine_pts.size()) > HISTORY_KEEP)
+                fine_pts.erase(fine_pts.begin());
+              MovingEvent fev;
+              if (mov_classify(fine_pts, MOTION_THRESHOLD, fev, ts.name, video_path, fps)) {
+                report(fev);
+                break;
+              }
+            }
+          }
+          cap.set(cv::CAP_PROP_POS_FRAMES, fn);
+        }
+        ts.history.clear();
+      }
+    }
+  }
+
+  double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_start).count();
+  std::cout << std::fixed << std::setprecision(1)
+            << "  [MOVING] Moving-logo scan: " << secs << "s"
+            << "  [" << events.size() << " event(s) found]\n";
+
+  cap.release();
+  return events;
+}
+
+
+bool process_video(const std::string& input_path,
+                   const std::string& output_path,
+                   fg::VideoLayoutManager& layout_manager,
+                   const std::string& layout_id,
+                   bool auto_detect,
+                   const std::string& ffmpeg_path,
+                   int sample_interval,
+                   bool dry_run,
+                   bool use_multi_scale,
+                   std::vector<MovingEvent>& all_moving_events)
  {
    auto time_start = std::chrono::steady_clock::now();
    std::cout << "\nProcessing: " << input_path << std::endl;
@@ -556,11 +782,39 @@
    std::vector<DetectionResult> detections;
    
    if (layout_manager.is_detection_enabled() && layout->uses_detection()) {
-     std::cout << "  Running template matching detection..." << std::endl;
-     detections = detect_logos_in_video(input_path, layout_manager, *layout, sample_interval, use_multi_scale);
-     
+     std::cout << "  Running detection + moving-logo scan in parallel..." << std::endl;
+     auto t_phase1 = std::chrono::steady_clock::now();
+
+     // Thread 1: static logo detection (finds segments, positions, boundaries)
+     // Thread 2: moving logo scan (tracks per-frame movement)
+     // Each thread opens its own VideoCapture — no shared state.
+     std::vector<MovingEvent> video_moving_events;
+     std::thread t_moving([&]() {
+       video_moving_events = scan_moving_logos(input_path, layout_manager, *layout,
+                                               fps, sample_interval);
+     });
+     // Run static detection on this thread while t_moving runs on the other.
+     detections = detect_logos_in_video(input_path, layout_manager, *layout,
+                                        sample_interval, use_multi_scale);
+     t_moving.join();
+
+     double phase1_secs = std::chrono::duration<double>(
+       std::chrono::steady_clock::now() - t_phase1).count();
+     std::cout << std::fixed << std::setprecision(1)
+               << "  Phase 1 (parallel wall-clock): " << phase1_secs << "s\n";
+
+     // Accumulate moving events into the shared summary list
+     for (const auto& ev : video_moving_events)
+       all_moving_events.push_back(ev);
+
+     if (video_moving_events.empty())
+       std::cout << "  No moving logos detected." << std::endl;
+     else
+       std::cout << "  Moving logos found: " << video_moving_events.size()
+                 << " event(s) in this video." << std::endl;
+
      if (detections.empty()) {
-       std::cout << "  No logos detected in video, skipping" << std::endl;
+      std::cout << "  No logos detected in video, skipping" << std::endl;
        std::cout << "  Total time: " << std::chrono::duration<double>(std::chrono::steady_clock::now() - time_start).count() << "s" << std::endl;
        return true;
      }
@@ -750,11 +1004,15 @@
    
    // Execute FFmpeg
    std::cout << "\n  Running FFmpeg..." << std::endl;
+   auto t_ffmpeg = std::chrono::steady_clock::now();
    int result = system(cmd.str().c_str());
-   
+   double ffmpeg_secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_ffmpeg).count();
+
    auto elapsed = std::chrono::steady_clock::now() - time_start;
-   double sec = std::chrono::duration<double>(elapsed).count();
-   std::cout << "  Total time: " << sec << "s" << std::endl;
+   double total_sec = std::chrono::duration<double>(elapsed).count();
+   std::cout << std::fixed << std::setprecision(1)
+             << "  Phase 2 (FFmpeg encoding): " << ffmpeg_secs << "s\n"
+             << "  Total time: " << total_sec << "s\n";
    if (result == 0) {
      std::cout << "  Output: " << output_path << std::endl;
      return true;
@@ -762,7 +1020,7 @@
      std::cerr << "  Error: FFmpeg failed with code " << result << std::endl;
      return false;
    }
- }
+}
  
  
  int main(int argc, char* argv[])
@@ -873,27 +1131,54 @@
    
    std::cout << "\nFound " << videos.size() << " video(s) to process" << std::endl;
    
-   // Process each video
-   int success_count = 0;
-   int error_count = 0;
-   
-   for (const auto& video_path : videos) {
-     std::string output_path = get_output_filename(video_path, output_folder);
-     
-     if (process_video(video_path, output_path, layout_manager,
-                       layout_id, auto_detect, ffmpeg_path, sample_interval, dry_run, use_multi_scale)) {
-       success_count++;
-     } else {
-       error_count++;
-     }
-   }
-   
-   std::cout << "\n========================================" << std::endl;
-   std::cout << "Batch processing complete!" << std::endl;
-   std::cout << "  Success: " << success_count << std::endl;
-   std::cout << "  Errors: " << error_count << std::endl;
-   std::cout << "========================================" << std::endl;
-   
-   return (error_count > 0) ? 1 : 0;
+  // Process each video
+  int success_count = 0;
+  int error_count = 0;
+  std::vector<MovingEvent> all_moving_events;
+
+  for (const auto& video_path : videos) {
+    std::string output_path = get_output_filename(video_path, output_folder);
+    
+    if (process_video(video_path, output_path, layout_manager,
+                      layout_id, auto_detect, ffmpeg_path, sample_interval, dry_run,
+                      use_multi_scale, all_moving_events)) {
+      success_count++;
+    } else {
+      error_count++;
+    }
+  }
+  
+  std::cout << "\n========================================" << std::endl;
+  std::cout << "Batch processing complete!" << std::endl;
+  std::cout << "  Success: " << success_count << std::endl;
+  std::cout << "  Errors: " << error_count << std::endl;
+  std::cout << "========================================" << std::endl;
+
+  // ── Moving-logo summary ───────────────────────────────────────────────────
+  if (!all_moving_events.empty()) {
+    std::cout << "\n========================================" << std::endl;
+    std::cout << "MOVING LOGO SUMMARY — " << all_moving_events.size()
+              << " event(s) detected:" << std::endl;
+    std::string cur_video;
+    for (const auto& ev : all_moving_events) {
+      if (ev.video_path != cur_video) {
+        cur_video = ev.video_path;
+        size_t sl = cur_video.rfind('/');
+        std::string fname = (sl != std::string::npos) ? cur_video.substr(sl+1) : cur_video;
+        std::cout << "\n  Video: " << fname << std::endl;
+      }
+      int sec = static_cast<int>(ev.frame_num / std::max(ev.fps, 0.01));
+      std::cout << "    " << sec/60 << "m " << std::setw(2) << std::setfill('0') << sec%60 << "s"
+                << std::setfill(' ')
+                << "  " << ev.logo_name
+                << "  [" << ev.direction << "]"
+                << "  shift: " << std::fixed << std::setprecision(1) << ev.net_dist << " px\n";
+    }
+    std::cout << "========================================" << std::endl;
+  } else {
+    std::cout << "\nNo moving logos detected in any video." << std::endl;
+  }
+
+  return (error_count > 0) ? 1 : 0;
  }
  
