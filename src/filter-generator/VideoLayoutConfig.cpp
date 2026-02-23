@@ -79,6 +79,7 @@ DetectionConfig::DetectionConfig()
   : search_quadrant(0)
   , match_threshold(0.7)
   , replacement_scale(1.0)
+  , conflict_priority(0)
   , full_screen(false)
   , suppress_during_full_screen(false)
 {
@@ -473,6 +474,10 @@ DetectionConfig VideoLayoutManager::parse_detection(const Json::Value& json) con
   
   if (json.isMember("replacement_scale")) {
     det.replacement_scale = json["replacement_scale"].asDouble();
+  }
+
+  if (json.isMember("conflict_priority")) {
+    det.conflict_priority = json["conflict_priority"].asInt();
   }
 
   // Optional flags for full-screen suppression logic

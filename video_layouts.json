@@ -13,7 +13,8 @@
           "reference_image": "nxt+ib-corner.png",
           "replacement_image": "nxtwave_logo_replacement.png",
           "match_threshold": 0.75,
-          "replacement_scale": 1.0
+          "replacement_scale": 1.0,
+          "conflict_priority": 2
         }, 
         {
           "name": "Nxtwave With IB in Slide",
@@ -97,7 +98,8 @@
             "height": 540
           },
           "match_threshold": 0.75,
-          "replacement_scale": 1.0
+          "replacement_scale": 1.0,
+          "conflict_priority": 1
         }
       ]
     }

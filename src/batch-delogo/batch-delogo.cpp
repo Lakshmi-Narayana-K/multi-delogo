@@ -227,23 +227,25 @@
  }
  
  
- // Per-detection state for frame-first (single pass) scanning
- struct DetectionState {
-   cv::Mat template_img;
-   fg::SearchRegion effective_region;
-   double match_threshold;
-   std::string replacement_image;
-   double scale;
-   std::string name;
-   bool full_screen;
-   bool suppress_during_full_screen;
-   bool currently_detecting = false;
-   int detection_start_frame = -1;
+// Per-detection state for frame-first (single pass) scanning
+struct DetectionState {
+  cv::Mat template_img;
+  fg::SearchRegion effective_region;
+  double match_threshold;
+  std::string replacement_image;
+  double scale;
+  std::string name;
+  int conflict_priority = 0;        // Higher value wins when two logos overlap at same position
+  bool full_screen;
+  bool suppress_during_full_screen;
+  bool currently_detecting = false;
+  int detection_start_frame = -1;
   int last_found_frame = -1;
-   int last_detected_x = 0, last_detected_y = 0;
-   int consecutive_misses = 0;
-   double last_confidence = 0.0;
- };
+  int first_detected_x = 0, first_detected_y = 0;  // Position when logo was FIRST seen in segment (stable corner pos)
+  int last_detected_x = 0, last_detected_y = 0;
+  int consecutive_misses = 0;
+  double last_confidence = 0.0;
+};
  
 // ── Moving-logo structs + classifier ─────────────────────────────────────────
 // Declared here (before detect_logos_in_video) so they are visible inside it.
@@ -369,6 +371,7 @@ std::vector<DetectionResult> detect_logos_in_video(
      ds.replacement_image = det.replacement_image;
      ds.scale = det.replacement_scale;
      ds.name = det.name;
+     ds.conflict_priority = det.conflict_priority;
      ds.full_screen = det.full_screen;
      ds.suppress_during_full_screen = det.suppress_during_full_screen;
      states.push_back(ds);
@@ -387,24 +390,89 @@ std::vector<DetectionResult> detect_logos_in_video(
    const double REFINE_THRESHOLD_OFFSET_START = 0.08;  // More aggressive for start refinement (fade-in frames)
   const int CONFIRM_MISSING_FRAMES = 6;   // On a miss, scan a few real frames to confirm logo is truly gone (helps with layout switches)
    
+   // Per-frame conflict resolution threshold: two detections at the same position
+   // (within this many pixels) on the same frame → only keep the higher-confidence one.
+   const int CONFLICT_POSITION_THRESHOLD = 50;
+
    // Single pass: each frame read once, run all detections on it
    for (int frame_num = 0; frame_num < frame_count; frame_num += sample_interval) {
      cap.set(cv::CAP_PROP_POS_FRAMES, frame_num);
      cv::Mat frame;
      if (!cap.read(frame)) break;
-     
+
+     // --- Pass 1: collect raw detections for this frame ---
+     struct FrameHit { bool found; int x; int y; double conf; };
+     std::vector<FrameHit> hits(states.size());
+     for (size_t idx = 0; idx < states.size(); ++idx) {
+       FrameHit& h = hits[idx];
+       h.found = detect_logo_in_frame(frame, states[idx].template_img,
+                                      states[idx].effective_region,
+                                      states[idx].match_threshold,
+                                      h.x, h.y, h.conf, use_multi_scale);
+     }
+
+     // --- Pass 2: resolve position conflicts on this frame ---
+     // If two logos are detected within CONFLICT_POSITION_THRESHOLD px of each
+     // other, suppress the one with lower conflict_priority.
+     // If priorities are equal, fall back to confidence (higher confidence wins).
+     for (size_t i = 0; i < hits.size(); ++i) {
+       if (!hits[i].found) continue;
+       for (size_t j = i + 1; j < hits.size(); ++j) {
+         if (!hits[j].found) continue;
+         double dx = static_cast<double>(hits[i].x - hits[j].x);
+         double dy = static_cast<double>(hits[i].y - hits[j].y);
+         double dist = std::sqrt(dx*dx + dy*dy);
+         if (dist <= CONFLICT_POSITION_THRESHOLD) {
+           int pri_i = states[i].conflict_priority;
+           int pri_j = states[j].conflict_priority;
+           // i wins if it has higher priority, or equal priority with higher confidence
+           bool i_wins = (pri_i > pri_j) ||
+                         (pri_i == pri_j && hits[i].conf >= hits[j].conf);
+           std::cout << " pri_i " << pri_i << " pri_j " << pri_j<<" "<<i_wins<<std::endl;
+           if (i_wins) {
+             std::cout << "  [CONFLICT] frame " << frame_num
+                       << " — suppressing " << states[j].name
+                       << " (priority=" << pri_j << ", conf="
+                       << std::fixed << std::setprecision(1) << (hits[j].conf*100) << "%)"
+                       << " in favor of " << states[i].name
+                       << " (priority=" << pri_i << ", conf="
+                       << (hits[i].conf*100) << "%)\n";
+             hits[j].found = false;
+           } else {
+             std::cout << "  [CONFLICT] frame " << frame_num
+                       << " — suppressing " << states[i].name
+                       << " (priority=" << pri_i << ", conf="
+                       << std::fixed << std::setprecision(1) << (hits[i].conf*100) << "%)"
+                       << " in favor of " << states[j].name
+                       << " (priority=" << pri_j << ", conf="
+                       << (hits[j].conf*100) << "%)\n";
+             hits[i].found = false;
+             break; // i is gone; stop comparing i with further j
+           }
+         }
+       }
+     }
+
+     // --- Pass 3: process each state with the conflict-resolved found/not-found ---
      for (size_t idx = 0; idx < states.size(); ++idx) {
        DetectionState& ds = states[idx];
-       int found_x, found_y;
-       double confidence;
-       bool found = detect_logo_in_frame(frame, ds.template_img, ds.effective_region,
-                                         ds.match_threshold, found_x, found_y, confidence, use_multi_scale);
+       const bool   found      = hits[idx].found;
+       const int    found_x    = hits[idx].x;
+       const int    found_y    = hits[idx].y;
+       const double confidence = hits[idx].conf;
        
        if (found) {
          if (!ds.currently_detecting) {
            ds.currently_detecting = true;
            ds.detection_start_frame = frame_num;
-          ds.last_found_frame = frame_num;
+           ds.last_found_frame = frame_num;
+           // Store the initial position — this is the logo's stable/home corner position.
+           // We deliberately do NOT overwrite this later so that even if the logo
+           // drifts or slides before leaving the screen, the overlay stays at the
+           // position where the logo first appeared (the corner), not where it last
+           // appeared (which could be far across the screen).
+           ds.first_detected_x = found_x;
+           ds.first_detected_y = found_y;
            // Refine start: scan backward with slightly lower threshold to find first frame where logo appears
            double refine_threshold = std::max(0.35, ds.match_threshold - REFINE_THRESHOLD_OFFSET_START);
            int refine_start = std::max(0, frame_num - BOUNDARY_REFINE_WINDOW);
@@ -484,8 +552,8 @@ std::vector<DetectionResult> detect_logos_in_video(
 
             DetectionResult result;
             result.found = true;
-            result.x = ds.last_detected_x;
-            result.y = ds.last_detected_y;
+            result.x = ds.first_detected_x;  // Use FIRST position (logo's stable corner, not where it was last seen while sliding)
+            result.y = ds.first_detected_y;
             result.width = ds.template_img.cols;
             result.height = ds.template_img.rows;
             result.confidence = ds.last_confidence;
@@ -497,7 +565,8 @@ std::vector<DetectionResult> detect_logos_in_video(
             result.full_screen = ds.full_screen;
             result.suppress_during_full_screen = ds.suppress_during_full_screen;
             results.push_back(result);
-            std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << end_frame << std::endl;
+            std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << end_frame
+                      << " pos(" << result.x << "," << result.y << ")" << std::endl;
 
             ds.currently_detecting = false;
             ds.consecutive_misses = 0;
@@ -528,8 +597,8 @@ std::vector<DetectionResult> detect_logos_in_video(
              end_frame = std::min(frame_count - 1, end_frame + END_PADDING_FRAMES);  // Small end padding only
              DetectionResult result;
              result.found = true;
-             result.x = ds.last_detected_x;
-             result.y = ds.last_detected_y;
+             result.x = ds.first_detected_x;  // Use FIRST position (logo's stable corner)
+             result.y = ds.first_detected_y;
              result.width = ds.template_img.cols;
              result.height = ds.template_img.rows;
              result.confidence = ds.last_confidence;
@@ -541,7 +610,8 @@ std::vector<DetectionResult> detect_logos_in_video(
              result.full_screen = ds.full_screen;
              result.suppress_during_full_screen = ds.suppress_during_full_screen;
              results.push_back(result);
-             std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << end_frame << std::endl;
+             std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << end_frame
+                       << " pos(" << result.x << "," << result.y << ")" << std::endl;
              ds.currently_detecting = false;
              ds.consecutive_misses = 0;
            }
@@ -557,8 +627,8 @@ std::vector<DetectionResult> detect_logos_in_video(
        int start_frame = std::max(0, ds.detection_start_frame - START_PADDING_FRAMES);
        DetectionResult result;
        result.found = true;
-       result.x = ds.last_detected_x;
-       result.y = ds.last_detected_y;
+       result.x = ds.first_detected_x;  // Use FIRST position (logo's stable corner)
+       result.y = ds.first_detected_y;
        result.width = ds.template_img.cols;
        result.height = ds.template_img.rows;
        result.confidence = 0.0;
@@ -570,7 +640,8 @@ std::vector<DetectionResult> detect_logos_in_video(
        result.full_screen = ds.full_screen;
        result.suppress_during_full_screen = ds.suppress_during_full_screen;
        results.push_back(result);
-       std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << (frame_count - 1) << " (end of video)" << std::endl;
+       std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << (frame_count - 1)
+                 << " pos(" << result.x << "," << result.y << ") (end of video)" << std::endl;
      }
    }
    

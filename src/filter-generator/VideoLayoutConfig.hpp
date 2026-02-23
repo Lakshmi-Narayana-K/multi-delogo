@@ -60,6 +60,7 @@
      int search_quadrant;           // 0=use search_region, 1-4=use quadrant (1=TL, 2=TR, 3=BR, 4=BL)
      double match_threshold;        // Confidence threshold (0.0-1.0)
      double replacement_scale;      // Scale factor for replacement
+     int conflict_priority;         // When two logos are detected at same position, higher priority wins (default 0; ties broken by confidence)
      bool full_screen;              // When true, this segment defines "full-screen" ranges; other overlays can be suppressed during it
      bool suppress_during_full_screen;  // When true, do not draw this overlay during any full_screen segment's frame range
      
