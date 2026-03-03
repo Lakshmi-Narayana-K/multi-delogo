@@ -394,11 +394,28 @@ std::vector<DetectionResult> detect_logos_in_video(
    // (within this many pixels) on the same frame → only keep the higher-confidence one.
    const int CONFLICT_POSITION_THRESHOLD = 50;
 
+   // How many sampled frames we expect to process (for progress reporting)
+   int total_sampled = (frame_count + sample_interval - 1) / sample_interval;
+   int sampled_done  = 0;
+   // Print progress every ~5% of sampled frames (minimum every 1 frame)
+   int progress_interval = std::max(1, total_sampled / 20);
+
    // Single pass: each frame read once, run all detections on it
    for (int frame_num = 0; frame_num < frame_count; frame_num += sample_interval) {
      cap.set(cv::CAP_PROP_POS_FRAMES, frame_num);
      cv::Mat frame;
      if (!cap.read(frame)) break;
+
+     // --- Progress report ---
+     ++sampled_done;
+     if (sampled_done == 1 || sampled_done % progress_interval == 0 || sampled_done == total_sampled) {
+       double pct = 100.0 * sampled_done / total_sampled;
+       int sec = static_cast<int>(frame_num / std::max(cap.get(cv::CAP_PROP_FPS), 1.0));
+       std::cout << "  [Progress] frame " << frame_num << "/" << frame_count
+                 << "  (" << std::fixed << std::setprecision(1) << pct << "%)"
+                 << "  video time " << sec/60 << "m" << std::setw(2) << std::setfill('0') << sec%60 << "s"
+                 << std::setfill(' ') << std::endl;
+     }
 
      // --- Pass 1: collect raw detections for this frame ---
      struct FrameHit { bool found; int x; int y; double conf; };
