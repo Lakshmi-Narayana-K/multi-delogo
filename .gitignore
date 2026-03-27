@@ -7,6 +7,7 @@ src/batch-delogo/*.o
 # Video files
 videos_to_process/*.mp4
 videos_to_process2/*.mp4
+videos_to_process3/*.mp4
 videos_standby/*.mp4
 processed_videos/*.mp4
 docs/*.mp4

@@ -378,6 +378,11 @@ std::vector<DetectionResult> detect_logos_in_video(
      std::cout << "  Detecting: " << det.name
                << " region (" << effective_region.x << "," << effective_region.y << ") "
                << effective_region.width << "x" << effective_region.height << std::endl;
+     // DEBUG: log template size vs search area size so we can diagnose scale mismatches
+     std::cout << "  [DEBUG] " << det.name
+               << " template size: " << template_img.cols << "x" << template_img.rows
+               << "  search area: " << effective_region.width << "x" << effective_region.height
+               << "  threshold: " << det.match_threshold << std::endl;
    }
 
    auto t_scan_start = std::chrono::steady_clock::now();
@@ -426,6 +431,13 @@ std::vector<DetectionResult> detect_logos_in_video(
                                       states[idx].effective_region,
                                       states[idx].match_threshold,
                                       h.x, h.y, h.conf, use_multi_scale);
+       // DEBUG: print confidence for nx+ibhubs_720 on every sampled frame so we can see how close it gets
+       if (states[idx].name == "Medium IB HUbs Author In Slide") {
+         std::cout << "  [Medium IB HUbs Author In Slide] frame=" << frame_num
+                   << "  conf=" << std::fixed << std::setprecision(3) << h.conf
+                   << "  threshold=" << states[idx].match_threshold
+                   << "  found=" << (h.found ? "YES" : "no") << std::endl;
+       }
      }
 
      // --- Pass 2: resolve position conflicts on this frame ---
