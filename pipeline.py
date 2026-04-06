@@ -8,6 +8,19 @@ Required env vars:
   INPUT_CSV_S3   - s3://bucket/path/input.csv
   OUTPUT_PREFIX  - s3://bucket/processed/  (trailing slash)
   OUTPUT_CSV_S3  - s3://bucket/path/output.csv
+
+Optional env vars for parallel execution:
+  TOTAL_WORKERS  - total number of parallel instances (default: 1)
+  WORKER_INDEX   - this instance's index, 0-based (default: 0)
+
+  Each instance processes rows where: row_index % TOTAL_WORKERS == WORKER_INDEX
+  Output CSV per worker: OUTPUT_CSV_S3 base name gets suffix _worker<N>.csv
+
+Example (4 EC2 instances):
+  Instance 0: TOTAL_WORKERS=4 WORKER_INDEX=0 python3 pipeline.py
+  Instance 1: TOTAL_WORKERS=4 WORKER_INDEX=1 python3 pipeline.py
+  Instance 2: TOTAL_WORKERS=4 WORKER_INDEX=2 python3 pipeline.py
+  Instance 3: TOTAL_WORKERS=4 WORKER_INDEX=3 python3 pipeline.py
 """
 
 import os
@@ -17,17 +30,46 @@ import subprocess
 import shutil
 import sys
 import boto3
+import urllib.request
 
 INPUT_CSV_S3  = os.environ["INPUT_CSV_S3"]
 OUTPUT_PREFIX = os.environ["OUTPUT_PREFIX"].rstrip("/")
 OUTPUT_CSV_S3 = os.environ["OUTPUT_CSV_S3"]
 
-BINARY        = "./batch-delogo"
+TOTAL_WORKERS = int(os.environ.get("TOTAL_WORKERS", "1"))
+WORKER_INDEX  = int(os.environ.get("WORKER_INDEX",  "0"))
+
+BINARY        = "./src/batch-delogo/batch-delogo"
 CONFIG        = "./video_layouts.json"
-INPUT_DIR     = "./videos_to_process"
-OUTPUT_DIR    = "./processed_videos"
+INPUT_DIR     = f"./videos_to_process{WORKER_INDEX}"
+OUTPUT_DIR    = f"./processed_videos{WORKER_INDEX}"
 
 s3 = boto3.client("s3")
+
+_dl_key    = os.environ.get("DOWNLOAD_AWS_ACCESS_KEY_ID")
+_dl_secret = os.environ.get("DOWNLOAD_AWS_SECRET_ACCESS_KEY")
+_dl_token  = os.environ.get("DOWNLOAD_AWS_SESSION_TOKEN")
+_dl_region = os.environ.get("DOWNLOAD_AWS_REGION", "us-east-1")
+
+if _dl_key and _dl_secret:
+    s3_download = boto3.client(
+        "s3",
+        aws_access_key_id=_dl_key,
+        aws_secret_access_key=_dl_secret,
+        aws_session_token=_dl_token,
+        region_name=_dl_region,
+        config=boto3.session.Config(signature_version="s3v4"),
+    )
+else:
+    s3_download = s3
+
+
+def worker_output_csv_s3():
+    """Each worker writes to its own output CSV to avoid conflicts."""
+    if TOTAL_WORKERS == 1:
+        return OUTPUT_CSV_S3
+    base, _, ext = OUTPUT_CSV_S3.rpartition(".")
+    return f"{base}_worker{WORKER_INDEX}.{ext}"
 
 
 def parse_s3_url(url):
@@ -39,7 +81,13 @@ def parse_s3_url(url):
 
 def download_from_s3(s3_url, dest_path):
     bucket, key = parse_s3_url(s3_url)
-    s3.download_file(bucket, key, dest_path)
+    presigned_url = s3_download.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": bucket, "Key": key},
+        ExpiresIn=604800,
+    )
+    print(f"  Presigned URL: {presigned_url}")
+    urllib.request.urlretrieve(presigned_url, dest_path)
 
 
 def upload_to_s3(local_path, s3_url):
@@ -55,15 +103,17 @@ def read_input_csv():
     return list(reader)
 
 
-def write_output_csv(rows):
+def write_output_csv(rows, dest_s3_url=None):
+    if dest_s3_url is None:
+        dest_s3_url = worker_output_csv_s3()
     buf = io.StringIO()
-    fieldnames = ["old_s3_url", "new_s3_url", "status"]
-    writer = csv.DictWriter(buf, fieldnames=fieldnames)
+    fieldnames = ["row_index", "old_s3_url", "new_s3_url", "status"]
+    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
     writer.writerows(rows)
-    bucket, key = parse_s3_url(OUTPUT_CSV_S3)
+    bucket, key = parse_s3_url(dest_s3_url)
     s3.put_object(Bucket=bucket, Key=key, Body=buf.getvalue().encode("utf-8"))
-    print(f"Output CSV written to {OUTPUT_CSV_S3}")
+    print(f"  [Worker {WORKER_INDEX}] Progress CSV -> {dest_s3_url}")
 
 
 def process_video(old_s3_url):
@@ -93,7 +143,7 @@ def process_video(old_s3_url):
                 "--auto-detect",
             ],
             capture_output=False,
-            timeout=7200,  # 2 hour hard limit per video
+            timeout=36000,  # 10 hour hard limit per video
         )
 
         if result.returncode != 0:
@@ -126,25 +176,41 @@ def main():
     os.makedirs(INPUT_DIR,  exist_ok=True)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    print(f"Reading input CSV from {INPUT_CSV_S3}")
-    rows = read_input_csv()
-    print(f"Found {len(rows)} video(s) to process")
+    print(f"[Worker {WORKER_INDEX}/{TOTAL_WORKERS}] Reading input CSV from {INPUT_CSV_S3}")
+    all_rows = read_input_csv()
+    print(f"[Worker {WORKER_INDEX}/{TOTAL_WORKERS}] Total rows in CSV: {len(all_rows)}")
 
-    # Input CSV must have a column named 's3_url'
+    # Each worker handles rows where row_index % TOTAL_WORKERS == WORKER_INDEX
+    my_rows = [
+        (row_index, row)
+        for row_index, row in enumerate(all_rows)
+        if row_index % TOTAL_WORKERS == WORKER_INDEX
+    ]
+
+    print(f"[Worker {WORKER_INDEX}/{TOTAL_WORKERS}] Assigned {len(my_rows)} video(s): "
+          f"rows {[i for i, _ in my_rows]}")
+
+    if not my_rows:
+        print(f"[Worker {WORKER_INDEX}/{TOTAL_WORKERS}] No rows assigned, exiting.")
+        return
+
+    out_csv = worker_output_csv_s3()
+    print(f"[Worker {WORKER_INDEX}/{TOTAL_WORKERS}] Output CSV -> {out_csv}")
+
     results = []
-    for i, row in enumerate(rows, 1):
+    for position, (row_index, row) in enumerate(my_rows, 1):
         old_url = row["s3_url"].strip()
-        print(f"\n[{i}/{len(rows)}] {old_url}")
+        print(f"\n[Worker {WORKER_INDEX}] [{position}/{len(my_rows)}] row#{row_index} {old_url}")
         result = process_video(old_url)
+        result["row_index"] = row_index
         results.append(result)
 
-        # Write output CSV after every video so progress is saved even if the task crashes
-        write_output_csv(results)
+        # Write output CSV after every video so progress is saved even if the instance crashes
+        write_output_csv(results, out_csv)
 
-    # Summary
     success = sum(1 for r in results if r["status"] == "success")
     errors  = len(results) - success
-    print(f"\nDone. Success: {success}  Errors: {errors}")
+    print(f"\n[Worker {WORKER_INDEX}/{TOTAL_WORKERS}] Done. Success: {success}  Errors: {errors}")
     if errors:
         sys.exit(1)
 

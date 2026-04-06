@@ -31,29 +31,6 @@
           "search_quadrant": 4,
           "match_threshold": 0.6,
           "replacement_scale": 1.0
-        }, 
-        {
-          "name": "Nxtwave without TM in top left",
-          "reference_image": "nxtwave-top-left.png",
-          "replacement_image": "nxtwave_logo_replacement.png",
-          "search_quadrant": 1,
-          "match_threshold": 0.6,
-          "replacement_scale": 1.0
-        }, 
-        {
-          "name": "CCBP IN SLIDE",
-          "reference_image": "ccbp_in_slide.png",
-          "replacement_image": "nxtwave_logo_replacement.png",
-          "search_quadrant": 4,
-          "match_threshold": 0.6,
-          "replacement_scale": 1.0
-        },
-        {
-          "name": "CCBP IN CENTER",
-          "reference_image": "ccbp_big.png",
-          "replacement_image": "nxtwave_logo_replacement.png",
-          "match_threshold": 0.6,
-          "replacement_scale": 1.0
         },
         {
           "name": "IB HUbs Author In Slide",
@@ -86,20 +63,6 @@
           "search_quadrant": 2,
           "match_threshold": 0.6,
           "replacement_scale": 1.0
-        },
-        {
-          "name": "NxtWave Without TM Bottom Half",
-          "reference_image": "nw_without_tm_bottom_right.png",
-          "replacement_image": "nxtwave_logo_replacement.png",
-          "search_region": {
-            "x": 0,
-            "y": 540,
-            "width": 1920,
-            "height": 540
-          },
-          "match_threshold": 0.75,
-          "replacement_scale": 1.0,
-          "conflict_priority": 1
         }
       ]
     },
