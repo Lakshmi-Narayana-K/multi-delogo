@@ -6,8 +6,16 @@ uploads results back to S3, writes an output mapping CSV.
 
 Required env vars:
   INPUT_CSV_S3   - s3://bucket/path/input.csv
-  OUTPUT_PREFIX  - s3://bucket/processed/  (trailing slash)
   OUTPUT_CSV_S3  - s3://bucket/path/output.csv
+
+Optional env vars:
+  OUTPUT_PREFIX  - legacy; processed videos are uploaded next to each source
+                    object (same bucket + key directory, *_ibhlr filename).
+  AWS_DEFAULT_REGION / AWS_REGION - optional; improves S3 client region selection.
+
+Credentials:
+  Use the default AWS credential chain (e.g. EC2 instance IAM role). Do not set
+  long-lived access keys in the environment for this pipeline.
 
 Optional env vars for parallel execution:
   TOTAL_WORKERS  - total number of parallel instances (default: 1)
@@ -33,7 +41,7 @@ import boto3
 import urllib.request
 
 INPUT_CSV_S3  = os.environ["INPUT_CSV_S3"]
-OUTPUT_PREFIX = os.environ["OUTPUT_PREFIX"].rstrip("/")
+OUTPUT_PREFIX = os.environ.get("OUTPUT_PREFIX", "").rstrip("/")  # optional; unused for video keys
 OUTPUT_CSV_S3 = os.environ["OUTPUT_CSV_S3"]
 
 TOTAL_WORKERS = int(os.environ.get("TOTAL_WORKERS", "1"))
@@ -43,25 +51,13 @@ BINARY        = "./src/batch-delogo/batch-delogo"
 CONFIG        = "./video_layouts.json"
 INPUT_DIR     = f"./videos_to_process{WORKER_INDEX}"
 OUTPUT_DIR    = f"./processed_videos{WORKER_INDEX}"
+REPORT_PATH   = f"./report_worker{WORKER_INDEX}.csv"
 
-s3 = boto3.client("s3")
-
-_dl_key    = os.environ.get("DOWNLOAD_AWS_ACCESS_KEY_ID")
-_dl_secret = os.environ.get("DOWNLOAD_AWS_SECRET_ACCESS_KEY")
-_dl_token  = os.environ.get("DOWNLOAD_AWS_SESSION_TOKEN")
-_dl_region = os.environ.get("DOWNLOAD_AWS_REGION", "us-east-1")
-
-if _dl_key and _dl_secret:
-    s3_download = boto3.client(
-        "s3",
-        aws_access_key_id=_dl_key,
-        aws_secret_access_key=_dl_secret,
-        aws_session_token=_dl_token,
-        region_name=_dl_region,
-        config=boto3.session.Config(signature_version="s3v4"),
-    )
-else:
-    s3_download = s3
+_s3_kw = {"config": boto3.session.Config(signature_version="s3v4")}
+_s3_region = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION")
+if _s3_region:
+    _s3_kw["region_name"] = _s3_region
+s3 = boto3.client("s3", **_s3_kw)
 
 
 def worker_output_csv_s3():
@@ -79,9 +75,26 @@ def parse_s3_url(url):
     return bucket, key
 
 
+OUTPUT_BUCKET = "nxtwave-common-media-static"
+
+
+def output_s3_url_same_path_as_source(source_s3_url, output_filename):
+    """
+    s3://src-bucket/a/b/c/video.mp4 -> s3://nxtwave-common-media-static/src-bucket/a/b/c/video_ibhlr.mp4
+    Preserves full source path under OUTPUT_BUCKET with source bucket name as top-level prefix.
+    """
+    src_bucket, src_key = parse_s3_url(source_s3_url.strip())
+    key_dir, sep, _ = src_key.rpartition("/")
+    if sep:
+        new_key = f"{src_bucket}/{key_dir}/{output_filename}"
+    else:
+        new_key = f"{src_bucket}/{output_filename}"
+    return f"s3://{OUTPUT_BUCKET}/{new_key}"
+
+
 def download_from_s3(s3_url, dest_path):
     bucket, key = parse_s3_url(s3_url)
-    presigned_url = s3_download.generate_presigned_url(
+    presigned_url = s3.generate_presigned_url(
         "get_object",
         Params={"Bucket": bucket, "Key": key},
         ExpiresIn=604800,
@@ -107,7 +120,7 @@ def write_output_csv(rows, dest_s3_url=None):
     if dest_s3_url is None:
         dest_s3_url = worker_output_csv_s3()
     buf = io.StringIO()
-    fieldnames = ["row_index", "old_s3_url", "new_s3_url", "status"]
+    fieldnames = ["row_index", "old_s3_url", "new_s3_url", "status", "moving_logos"]
     writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
     writer.writerows(rows)
@@ -122,10 +135,10 @@ def process_video(old_s3_url):
 
     # derive expected output filename (batch-delogo appends _processed before extension)
     name, ext = os.path.splitext(filename)
-    output_filename = f"{name}_processed{ext}"
+    output_filename = f"{name}_ibhlr{ext}"
     output_path = os.path.join(OUTPUT_DIR, output_filename)
 
-    new_s3_url = f"{OUTPUT_PREFIX}/{output_filename}"
+    new_s3_url = output_s3_url_same_path_as_source(old_s3_url, output_filename)
 
     try:
         # 1. Download from S3
@@ -141,6 +154,7 @@ def process_video(old_s3_url):
                 "--output-folder", OUTPUT_DIR,
                 "--config",        CONFIG,
                 "--auto-detect",
+                "--report",        REPORT_PATH,
             ],
             capture_output=False,
             timeout=36000,  # 10 hour hard limit per video
@@ -152,24 +166,36 @@ def process_video(old_s3_url):
         if not os.path.exists(output_path):
             raise FileNotFoundError(f"Expected output not found: {output_path}")
 
-        # 3. Upload processed video to S3
+        # 3. Parse moving_logos from report CSV (one row per run)
+        moving_logos = ""
+        if os.path.exists(REPORT_PATH):
+            with open(REPORT_PATH, newline="") as rf:
+                for report_row in csv.DictReader(rf):
+                    moving_logos = report_row.get("moving_logos", "")
+                    break  # only one row expected
+
+        # 4. Upload processed video to S3
         print(f"  Uploading to {new_s3_url} ...")
         upload_to_s3(output_path, new_s3_url)
 
-        return {"old_s3_url": old_s3_url, "new_s3_url": new_s3_url, "status": "success"}
+        return {"old_s3_url": old_s3_url, "new_s3_url": new_s3_url, "status": "success",
+                "moving_logos": moving_logos}
 
     except Exception as e:
         print(f"  ERROR processing {filename}: {e}", file=sys.stderr)
-        return {"old_s3_url": old_s3_url, "new_s3_url": "", "status": f"error: {e}"}
+        return {"old_s3_url": old_s3_url, "new_s3_url": "", "status": f"error: {e}",
+                "moving_logos": ""}
 
     finally:
-        # 4. Always clean up local files to free disk
+        # 5. Always clean up local files to free disk
         if os.path.exists(input_path):
             os.remove(input_path)
             print(f"  Deleted local input: {input_path}")
         if os.path.exists(output_path):
             os.remove(output_path)
             print(f"  Deleted local output: {output_path}")
+        if os.path.exists(REPORT_PATH):
+            os.remove(REPORT_PATH)
 
 
 def main():

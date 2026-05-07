@@ -73,6 +73,7 @@
              << "  --ffmpeg PATH           Path to ffmpeg executable (default: ffmpeg)\n"
              << "  --sample-interval N     Check every Nth frame for detection (default: 30)\n"
              << "  --dry-run               Show what would be done without executing\n"
+             << "  --report PATH           Write a CSV report of results to PATH\n"
              << "  --help                  Show this help message\n"
              << "\n"
              << "Example:\n"
@@ -128,13 +129,13 @@
    size_t pos = input_path.rfind('/');
    std::string filename = (pos != std::string::npos) ? input_path.substr(pos + 1) : input_path;
    
-   // Add "_processed" before the extension
-   size_t ext_pos = filename.rfind('.');
-   if (ext_pos != std::string::npos) {
-     filename = filename.substr(0, ext_pos) + "_processed" + filename.substr(ext_pos);
-   } else {
-     filename += "_processed";
-   }
+  // Add "_ibhlr" before the extension
+  size_t ext_pos = filename.rfind('.');
+  if (ext_pos != std::string::npos) {
+    filename = filename.substr(0, ext_pos) + "_ibhlr" + filename.substr(ext_pos);
+  } else {
+    filename += "_ibhlr";
+  }
    
    return output_folder + "/" + filename;
  }
@@ -270,6 +271,12 @@ struct MovingEvent {
   double       net_dist   = 0.0;
 };
 
+struct VideoResult {
+  std::string input_path;
+  std::string output_path;
+  bool        success;
+};
+
 // Returns true when 2+ consecutive coarse steps exceed threshold (Phase-2 rule)
 static bool mov_classify(const std::vector<MovPosSample>& pts,
                          double threshold,
@@ -375,14 +382,14 @@ std::vector<DetectionResult> detect_logos_in_video(
      ds.full_screen = det.full_screen;
      ds.suppress_during_full_screen = det.suppress_during_full_screen;
      states.push_back(ds);
-     std::cout << "  Detecting: " << det.name
-               << " region (" << effective_region.x << "," << effective_region.y << ") "
-               << effective_region.width << "x" << effective_region.height << std::endl;
+//     std::cout << "  Detecting: " << det.name
+//               << " region (" << effective_region.x << "," << effective_region.y << ") "
+//               << effective_region.width << "x" << effective_region.height << std::endl;
      // DEBUG: log template size vs search area size so we can diagnose scale mismatches
-     std::cout << "  [DEBUG] " << det.name
-               << " template size: " << template_img.cols << "x" << template_img.rows
-               << "  search area: " << effective_region.width << "x" << effective_region.height
-               << "  threshold: " << det.match_threshold << std::endl;
+    //  std::cout << "  [DEBUG] " << det.name
+    //            << " template size: " << template_img.cols << "x" << template_img.rows
+    //            << "  search area: " << effective_region.width << "x" << effective_region.height
+    //            << "  threshold: " << det.match_threshold << std::endl;
    }
 
    auto t_scan_start = std::chrono::steady_clock::now();
@@ -432,12 +439,18 @@ std::vector<DetectionResult> detect_logos_in_video(
                                       states[idx].match_threshold,
                                       h.x, h.y, h.conf, use_multi_scale);
        // DEBUG: print confidence for nx+ibhubs_720 on every sampled frame so we can see how close it gets
-       if (states[idx].name == "Medium IB HUbs Author In Slide") {
-         std::cout << "  [Medium IB HUbs Author In Slide] frame=" << frame_num
-                   << "  conf=" << std::fixed << std::setprecision(3) << h.conf
-                   << "  threshold=" << states[idx].match_threshold
-                   << "  found=" << (h.found ? "YES" : "no") << std::endl;
-       }
+      //  if (states[idx].name == "NX IB 3") {
+      //    std::cout << "  [NX IB 3] frame=" << frame_num
+      //              << "  conf=" << std::fixed << std::setprecision(3) << h.conf
+      //              << "  threshold=" << states[idx].match_threshold
+      //              << "  found=" << (h.found ? "YES" : "no") << std::endl;
+      //  }
+       if (states[idx].match_threshold<h.conf && h.found) {
+        std::cout << "  [" << states[idx].name << "] frame=" << frame_num
+                  << "  conf=" << std::fixed << std::setprecision(3) << h.conf
+                  << "  threshold=" << states[idx].match_threshold
+                  << "  found=" << (h.found ? "YES" : "no") << std::endl;
+      }
      }
 
      // --- Pass 2: resolve position conflicts on this frame ---
@@ -457,7 +470,7 @@ std::vector<DetectionResult> detect_logos_in_video(
            // i wins if it has higher priority, or equal priority with higher confidence
            bool i_wins = (pri_i > pri_j) ||
                          (pri_i == pri_j && hits[i].conf >= hits[j].conf);
-           std::cout << " pri_i " << pri_i << " pri_j " << pri_j<<" "<<i_wins<<std::endl;
+          //  std::cout << " pri_i " << pri_i << " pri_j " << pri_j<<" "<<i_wins<<std::endl;
            if (i_wins) {
              std::cout << "  [CONFLICT] frame " << frame_num
                        << " — suppressing " << states[j].name
@@ -594,8 +607,8 @@ std::vector<DetectionResult> detect_logos_in_video(
             result.full_screen = ds.full_screen;
             result.suppress_during_full_screen = ds.suppress_during_full_screen;
             results.push_back(result);
-            std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << end_frame
-                      << " pos(" << result.x << "," << result.y << ")" << std::endl;
+            // std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << end_frame
+            //           << " pos(" << result.x << "," << result.y << ")" << std::endl;
 
             ds.currently_detecting = false;
             ds.consecutive_misses = 0;
@@ -639,8 +652,8 @@ std::vector<DetectionResult> detect_logos_in_video(
              result.full_screen = ds.full_screen;
              result.suppress_during_full_screen = ds.suppress_during_full_screen;
              results.push_back(result);
-             std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << end_frame
-                       << " pos(" << result.x << "," << result.y << ")" << std::endl;
+            //  std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << end_frame
+            //            << " pos(" << result.x << "," << result.y << ")" << std::endl;
              ds.currently_detecting = false;
              ds.consecutive_misses = 0;
            }
@@ -669,8 +682,8 @@ std::vector<DetectionResult> detect_logos_in_video(
        result.full_screen = ds.full_screen;
        result.suppress_during_full_screen = ds.suppress_during_full_screen;
        results.push_back(result);
-       std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << (frame_count - 1)
-                 << " pos(" << result.x << "," << result.y << ") (end of video)" << std::endl;
+      //  std::cout << "  [" << ds.name << "] Segment: frames " << start_frame << "-" << (frame_count - 1)
+      //            << " pos(" << result.x << "," << result.y << ") (end of video)" << std::endl;
      }
    }
    
@@ -691,8 +704,8 @@ std::vector<DetectionResult> detect_logos_in_video(
    }
 
    double scan_secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_scan_start).count();
-   std::cout << std::fixed << std::setprecision(1)
-             << "  [DETECT] Static detection scan: " << scan_secs << "s\n";
+  //  std::cout << std::fixed << std::setprecision(1)
+  //            << "  [DETECT] Static detection scan: " << scan_secs << "s\n";
 
    cap.release();
    return results;
@@ -867,7 +880,7 @@ bool process_video(const std::string& input_path,
        std::cout << "  Total time: " << std::chrono::duration<double>(std::chrono::steady_clock::now() - time_start).count() << "s" << std::endl;
        return false;
      }
-     std::cout << "  Auto-detected layout: " << layout->name << std::endl;
+    //  std::cout << "  Auto-detected layout: " << layout->name << std::endl;
    } else {
      layout = layout_manager.get_layout(layout_id);
      if (!layout) {
@@ -882,7 +895,7 @@ bool process_video(const std::string& input_path,
    std::vector<DetectionResult> detections;
    
    if (layout_manager.is_detection_enabled() && layout->uses_detection()) {
-     std::cout << "  Running detection + moving-logo scan in parallel..." << std::endl;
+    //  std::cout << "  Running detection + moving-logo scan in parallel..." << std::endl;
      auto t_phase1 = std::chrono::steady_clock::now();
 
      // Thread 1: static logo detection (finds segments, positions, boundaries)
@@ -900,8 +913,8 @@ bool process_video(const std::string& input_path,
 
      double phase1_secs = std::chrono::duration<double>(
        std::chrono::steady_clock::now() - t_phase1).count();
-     std::cout << std::fixed << std::setprecision(1)
-               << "  Phase 1 (parallel wall-clock): " << phase1_secs << "s\n";
+    //  std::cout << std::fixed << std::setprecision(1)
+    //            << "  Phase 1 (parallel wall-clock): " << phase1_secs << "s\n";
 
      // Accumulate moving events into the shared summary list
      for (const auto& ev : video_moving_events)
@@ -992,21 +1005,21 @@ bool process_video(const std::string& input_path,
   // (Prevents generating an empty filtergraph that starts with ';' and missing [out_v].)
   if (detections.empty()) {
     std::stringstream cmd;
-    cmd << ffmpeg_path << " -y";
+    cmd << ffmpeg_path << " -y -loglevel quiet";
     cmd << " -i \"" << input_path << "\"";
     cmd << " -filter_complex \"[0:v]null[out_v];[0:a]anull[out_a]\"";
     cmd << " -map \"[out_v]\" -map \"[out_a]\"";
     cmd << " -c:v libx264 -preset medium -crf 18";
     cmd << " -c:a aac -b:a 192k";
     cmd << " \"" << output_path << "\"";
-    std::cout << "\n  FFmpeg command:\n  " << cmd.str() << std::endl;
+    // std::cout << "\n  FFmpeg command:\n  " << cmd.str() << std::endl;
     if (dry_run) {
-      std::cout << "  [DRY RUN] Would execute above command" << std::endl;
+      // std::cout << "  [DRY RUN] Would execute above command" << std::endl;
       auto elapsed = std::chrono::steady_clock::now() - time_start;
       std::cout << "  Total time: " << std::chrono::duration<double>(elapsed).count() << "s" << std::endl;
       return true;
     }
-    std::cout << "\n  Running FFmpeg..." << std::endl;
+    // std::cout << "\n  Running FFmpeg..." << std::endl;
     int result = system(cmd.str().c_str());
     auto elapsed = std::chrono::steady_clock::now() - time_start;
     double sec = std::chrono::duration<double>(elapsed).count();
@@ -1021,7 +1034,7 @@ bool process_video(const std::string& input_path,
    
    // Build FFmpeg command with detected segments
    std::stringstream cmd;
-   cmd << ffmpeg_path << " -y";
+   cmd << ffmpeg_path << " -y -loglevel quiet";
    
    // Add video input FIRST
    cmd << " -i \"" << input_path << "\"";
@@ -1093,17 +1106,17 @@ bool process_video(const std::string& input_path,
    cmd << " -c:a aac -b:a 192k";
    cmd << " \"" << output_path << "\"";
    
-   std::cout << "\n  FFmpeg command:\n  " << cmd.str() << std::endl;
+  //  std::cout << "\n  FFmpeg command:\n  " << cmd.str() << std::endl;
    
    if (dry_run) {
-     std::cout << "  [DRY RUN] Would execute above command" << std::endl;
+    //  std::cout << "  [DRY RUN] Would execute above command" << std::endl;
      auto elapsed = std::chrono::steady_clock::now() - time_start;
      std::cout << "  Total time: " << std::chrono::duration<double>(elapsed).count() << "s" << std::endl;
      return true;
    }
    
    // Execute FFmpeg
-   std::cout << "\n  Running FFmpeg..." << std::endl;
+  //  std::cout << "\n  Running FFmpeg..." << std::endl;
    auto t_ffmpeg = std::chrono::steady_clock::now();
    int result = system(cmd.str().c_str());
    double ffmpeg_secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_ffmpeg).count();
@@ -1134,6 +1147,7 @@ bool process_video(const std::string& input_path,
    bool dry_run = false;
    bool use_multi_scale = true;
    int sample_interval = 30;  // Check every 30 frames by default
+   std::string report_path;
    
    // Parse arguments
    for (int i = 1; i < argc; i++) {
@@ -1160,6 +1174,8 @@ bool process_video(const std::string& input_path,
        use_multi_scale = false;
      } else if (arg == "--dry-run") {
        dry_run = true;
+     } else if (arg == "--report" && i + 1 < argc) {
+       report_path = argv[++i];
      } else {
        std::cerr << "Unknown option: " << arg << std::endl;
        print_usage(argv[0]);
@@ -1206,20 +1222,20 @@ bool process_video(const std::string& input_path,
      layout_manager.set_reference_directory(ref_dir);
    }
    
-   std::cout << "Loaded config: " << config_path << std::endl;
-   std::cout << "Detection enabled: " << (layout_manager.is_detection_enabled() ? "YES" : "NO") << std::endl;
-   std::cout << "Images directory: " << layout_manager.get_images_directory() << std::endl;
-   std::cout << "Reference directory: " << layout_manager.get_reference_directory() << std::endl;
+  //  std::cout << "Loaded config: " << config_path << std::endl;
+  //  std::cout << "Detection enabled: " << (layout_manager.is_detection_enabled() ? "YES" : "NO") << std::endl;
+  //  std::cout << "Images directory: " << layout_manager.get_images_directory() << std::endl;
+  //  std::cout << "Reference directory: " << layout_manager.get_reference_directory() << std::endl;
    std::cout << "Sample interval: " << sample_interval << " frames" << std::endl;
-   std::cout << "Layouts available: " << layout_manager.get_all_layouts().size() << std::endl;
+  //  std::cout << "Layouts available: " << layout_manager.get_all_layouts().size() << std::endl;
    
    for (const auto& layout : layout_manager.get_all_layouts()) {
-     std::cout << "  - " << layout.id << ": " << layout.name 
-               << " (" << layout.resolution.width << "x" << layout.resolution.height << ")";
+    //  std::cout << "  - " << layout.id << ": " << layout.name 
+    //            << " (" << layout.resolution.width << "x" << layout.resolution.height << ")";
      if (layout.uses_detection()) {
-       std::cout << " [" << layout.detections.size() << " detection(s)]";
+      //  std::cout << " [" << layout.detections.size() << " detection(s)]";
      }
-     std::cout << std::endl;
+    //  std::cout << std::endl;
    }
    
    // List videos
@@ -1236,20 +1252,19 @@ bool process_video(const std::string& input_path,
   int error_count = 0;
   std::vector<MovingEvent> all_moving_events;
 
+  std::vector<VideoResult> video_results;
+
   for (const auto& video_path : videos) {
     std::string output_path = get_output_filename(video_path, output_folder);
-    
-    if (process_video(video_path, output_path, layout_manager,
-                      layout_id, auto_detect, ffmpeg_path, sample_interval, dry_run,
-                      use_multi_scale, all_moving_events)) {
-      success_count++;
-    } else {
-      error_count++;
-    }
+    bool ok = process_video(video_path, output_path, layout_manager,
+                            layout_id, auto_detect, ffmpeg_path, sample_interval, dry_run,
+                            use_multi_scale, all_moving_events);
+    if (ok) success_count++; else error_count++;
+    video_results.push_back({video_path, output_path, ok});
   }
   
   std::cout << "\n========================================" << std::endl;
-  std::cout << "Batch processing complete!" << std::endl;
+  // std::cout << "Batch processing complete!" << std::endl;
   std::cout << "  Success: " << success_count << std::endl;
   std::cout << "  Errors: " << error_count << std::endl;
   std::cout << "========================================" << std::endl;
@@ -1279,6 +1294,40 @@ bool process_video(const std::string& input_path,
     std::cout << "\nNo moving logos detected in any video." << std::endl;
   }
 
+  // ── CSV report ────────────────────────────────────────────────────────────
+  if (!report_path.empty()) {
+    std::ofstream csv(report_path);
+    if (!csv.is_open()) {
+      std::cerr << "Error: Cannot write report to " << report_path << std::endl;
+    } else {
+      auto basename = [](const std::string& p) {
+        size_t sl = p.rfind('/');
+        return (sl != std::string::npos) ? p.substr(sl + 1) : p;
+      };
+      csv << "video_file,status,output_file,moving_logos\n";
+      for (const auto& vr : video_results) {
+        std::string events_col;
+        for (const auto& ev : all_moving_events) {
+          if (ev.video_path != vr.input_path) continue;
+          int sec = static_cast<int>(ev.frame_num / std::max(ev.fps, 0.01));
+          if (!events_col.empty()) events_col += ";";
+          events_col += ev.logo_name + "@"
+                      + std::to_string(sec / 60) + "m"
+                      + std::to_string(sec % 60) + "s"
+                      + "(" + ev.direction + ","
+                      + std::to_string(static_cast<int>(ev.net_dist)) + "px)";
+        }
+        std::string quoted = events_col.empty() ? "" : ("\"" + events_col + "\"");
+        csv << basename(vr.input_path) << ","
+            << (vr.success ? "success" : "error") << ","
+            << basename(vr.output_path) << ","
+            << quoted << "\n";
+      }
+      csv.close();
+      std::cout << "\nReport written to: " << report_path << std::endl;
+    }
+  }
+
   return (error_count > 0) ? 1 : 0;
- }
+}
  
